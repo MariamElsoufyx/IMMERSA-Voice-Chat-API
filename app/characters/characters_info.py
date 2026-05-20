@@ -25,7 +25,7 @@ last_name = {
 voices = {
     "s1": os.getenv("AHMAD_VOICE_ID"),
     "s2": os.getenv("ACHRAF_VOICE_ID"),
-    "p1" : os.getenv("MAMDOUH_VOICE_ID")
+    "p1" : os.getenv("ROGER_VOICE_ID")
 
 }
 

@@ -509,7 +509,7 @@ IMMERSA-Voice-Chat-API/
 │   ├── services/
 │   │   ├── audio/
 │   │   │   └── preprocessor.py        # High-pass filter, silence trim, normalise
-│   │   ├── embedding_service.py       # all-MiniLM-L6-v2 embeddings (local CPU)
+│   │   ├── embedding_service.py       # BAAI/bge-small-en-v1.5 embeddings (local CPU)
 │   │   ├── faq_memory_cache.py        # In-memory vector index (numpy, no DB)
 │   │   ├── llm/
 │   │   │   ├── groq_service.py        # Groq LLM

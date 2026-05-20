@@ -64,7 +64,7 @@ RESPONSES_AUDIO_BUCKET = os.getenv("SUPABASE_RESPONSES_BUCKET", "response-audios
 QUESTIONS_AUDIO_BUCKET = os.getenv("SUPABASE_QUESTIONS_BUCKET", "question-audios")
 
 #db
-SIMILARITY_THRESHOLD = 0.65
+SIMILARITY_THRESHOLD = 0.8
 FAQ_LOOKUP_TIMEOUT = 2.0   # seconds — if DB doesn't respond in time, skip FAQ and fall through to LLM
 
 

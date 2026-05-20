@@ -131,6 +131,27 @@ def generate_audio_bytes(text: str, character_id: str, elevenlabs_client) -> byt
     return wav_buf.getvalue()
 
 
+def load_local_audio_bytes(path: str) -> bytes | None:
+    """Read an already-prepared audio file from disk and normalise it to WAV PCM16."""
+    import librosa
+    path = path.strip().strip('"').strip("'")
+    if not os.path.isfile(path):
+        print(f"  ❌ File not found: {path}")
+        return None
+    try:
+        audio, sr = librosa.load(path, sr=None, mono=True)
+    except Exception as e:
+        print(f"  ❌ Could not read audio file: {e}")
+        return None
+    if len(audio) == 0:
+        print("  ❌ Audio file is empty.")
+        return None
+    wav_buf = io.BytesIO()
+    sf.write(wav_buf, audio, sr, format="WAV", subtype="PCM_16")
+    print(f"  ✅ Loaded local audio ({len(audio)} samples @ {sr}Hz)")
+    return wav_buf.getvalue()
+
+
 async def upload_audio(audio_bytes: bytes, character_id: str) -> str | None:
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         print("  ⚠️  SUPABASE_URL or SUPABASE_SERVICE_KEY not set.")
@@ -251,9 +272,18 @@ async def action_add(db):
 
     # Audio
     audio_url = None
-    if confirm("Generate and upload audio?"):
+    audio_source = choose("Audio:", [
+        "Generate from answer (ElevenLabs)",
+        "Upload a ready audio file",
+        "Skip",
+    ])
+    if audio_source == "Generate from answer (ElevenLabs)":
         clients = AIClients().get_all_clients()
         audio_bytes = generate_audio_bytes(answer, character_id, clients["elevenlabs_client"])
+        if audio_bytes:
+            audio_url = await upload_audio(audio_bytes, character_id)
+    elif audio_source == "Upload a ready audio file":
+        audio_bytes = load_local_audio_bytes(inp("Path to audio file"))
         if audio_bytes:
             audio_url = await upload_audio(audio_bytes, character_id)
 
@@ -332,6 +362,7 @@ async def action_update(db):
         "Tag",
         "Regenerate embedding",
         "Regenerate audio",
+        "Upload a ready audio file",
         "Update answer + regenerate embedding + regenerate audio",
         "Cancel",
     ])
@@ -395,6 +426,13 @@ async def action_update(db):
 
     elif field == "Regenerate audio":
         audio_bytes = generate_audio_bytes(faq.answer, faq.character_id, get_clients()["elevenlabs_client"])
+        if audio_bytes:
+            audio_url = await upload_audio(audio_bytes, faq.character_id)
+            if audio_url:
+                updates["audio_url"] = audio_url
+
+    elif field == "Upload a ready audio file":
+        audio_bytes = load_local_audio_bytes(inp("Path to audio file"))
         if audio_bytes:
             audio_url = await upload_audio(audio_bytes, faq.character_id)
             if audio_url:
@@ -608,6 +646,90 @@ async def action_fill_missing_embeddings(db):
     print(f"\n  Done — ✅ {success} generated, ❌ {failed} failed.")
 
 
+async def action_regenerate_all_embeddings(db):
+    header("🔄  REGENERATE ALL EMBEDDINGS")
+    print("  ⚠️  This overwrites EVERY existing embedding. Use after changing")
+    print("     the embedding model — old vectors live in a different latent")
+    print("     space and won't match new queries.\n")
+
+    faqs = await get_all_faqs(db)
+    if not faqs:
+        print("  No FAQs found.")
+        return
+
+    print(f"  Found {len(faqs)} FAQ(s) to re-embed.\n")
+    if not confirm(f"Regenerate embeddings for all {len(faqs)} FAQs?"):
+        print("  Cancelled.")
+        return
+
+    success, failed = 0, 0
+
+    for i, faq in enumerate(faqs, 1):
+        print(f"\n  ── [{i}/{len(faqs)}] {faq.question[:60]}")
+        try:
+            embedding = generate_embedding(faq.question)
+            await update_faq(db, faq.id, {"embedding": embedding})
+            print(f"  ✅ Embedding regenerated ({len(embedding)} dims)")
+            success += 1
+        except Exception as e:
+            print(f"  ❌ Failed: {e}")
+            failed += 1
+
+    divider()
+    print(f"\n  Done — ✅ {success} regenerated, ❌ {failed} failed.")
+
+
+async def action_regenerate_all_audio(db):
+    header("🔄  REGENERATE ALL AUDIO")
+    print("  ⚠️  This overwrites existing audio by re-synthesizing every answer")
+    print("     with the character's voice. Use after changing a voice_id or")
+    print("     voice settings.\n")
+
+    faqs = await get_all_faqs(db)
+    if not faqs:
+        print("  No FAQs found.")
+        return
+
+    # Scope by character (each character maps to one voice_id)
+    chars = sorted({f.character_id for f in faqs})
+    scope = choose("Which FAQs?", ["All characters"] + [f"Only {c}" for c in chars])
+    if scope == "All characters":
+        targets = faqs
+    else:
+        target_char = scope.replace("Only ", "", 1)
+        targets = [f for f in faqs if f.character_id == target_char]
+
+    if not targets:
+        print("  No matching FAQs.")
+        return
+
+    print(f"\n  Found {len(targets)} FAQ(s) to regenerate audio for.\n")
+    if not confirm(f"Regenerate audio for all {len(targets)} FAQs?"):
+        print("  Cancelled.")
+        return
+
+    clients = AIClients().get_all_clients()
+    success, failed = 0, 0
+
+    for i, faq in enumerate(targets, 1):
+        print(f"\n  ── [{i}/{len(targets)}] {faq.character_id} | {faq.question[:60]}")
+        audio_bytes = generate_audio_bytes(faq.answer, faq.character_id, clients["elevenlabs_client"])
+        if not audio_bytes:
+            print(f"  ⚠️  Skipped — no voice configured for {faq.character_id}")
+            failed += 1
+            continue
+
+        audio_url = await upload_audio(audio_bytes, faq.character_id)
+        if audio_url:
+            await update_faq(db, faq.id, {"audio_url": audio_url})
+            success += 1
+        else:
+            failed += 1
+
+    divider()
+    print(f"\n  Done — ✅ {success} regenerated, ❌ {failed} failed.")
+
+
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
 async def main():
@@ -625,7 +747,9 @@ async def main():
             "Delete a FAQ",
             "Delete ALL FAQs",
             "Fill missing audio (batch)",
+            "Regenerate ALL audio (after voice change)",
             "Fill missing embeddings (batch)",
+            "Regenerate ALL embeddings (after model change)",
             "Fill missing emotions (batch)",
             "Exit",
         ])
@@ -645,8 +769,12 @@ async def main():
                 await action_delete_all(db)
             elif action == "Fill missing audio (batch)":
                 await action_fill_missing_audio(db)
+            elif action == "Regenerate ALL audio (after voice change)":
+                await action_regenerate_all_audio(db)
             elif action == "Fill missing embeddings (batch)":
                 await action_fill_missing_embeddings(db)
+            elif action == "Regenerate ALL embeddings (after model change)":
+                await action_regenerate_all_embeddings(db)
             elif action == "Fill missing emotions (batch)":
                 await action_fill_missing_emotions(db)
             elif action == "Exit":

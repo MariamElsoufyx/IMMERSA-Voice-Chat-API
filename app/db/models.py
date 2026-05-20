@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
 
-EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 local model dimensions
+EMBEDDING_DIM = 384  # BAAI/bge-small-en-v1.5 local model dimensions
 
 
 class FAQ(Base):

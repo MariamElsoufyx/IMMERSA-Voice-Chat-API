@@ -25,7 +25,7 @@ from app.services.streaming.event_protocol import (
     build_tts_done_event,
 )
 from app.services.verification import Verifier
-from app.services.embedding_service import generate_embedding
+from app.services.embedding_service import generate_query_embedding
 from app.db.repositories.faq_repository import search_similar_faq
 from app.utils.log import log
 
@@ -206,7 +206,7 @@ class Pipeline:
                         if self.db_session_factory and session_id not in _speculative_embed:
                             partial = session.get_combined_transcript()
                             _speculative_embed[session_id] = asyncio.create_task(
-                                asyncio.to_thread(generate_embedding, partial)
+                                asyncio.to_thread(generate_query_embedding, partial)
                             )
                             log.detail("speculative embedding started on partial transcript")
 
@@ -716,10 +716,10 @@ class Pipeline:
                     embedding = await spec_embed_task
                     log.detail(f"speculative embedding reused ({(time.perf_counter() - t_embed)*1000:.0f}ms)")
                 except Exception:
-                    embedding = await asyncio.to_thread(generate_embedding, transcript)
+                    embedding = await asyncio.to_thread(generate_query_embedding, transcript)
                     log.detail(f"embedding (fallback) generated ({(time.perf_counter() - t_embed)*1000:.0f}ms)")
             else:
-                embedding = await asyncio.to_thread(generate_embedding, transcript)
+                embedding = await asyncio.to_thread(generate_query_embedding, transcript)
                 log.detail(f"embedding generated ({(time.perf_counter() - t_embed)*1000:.0f}ms)")
 
             # Search: memory index first, DB fallback
