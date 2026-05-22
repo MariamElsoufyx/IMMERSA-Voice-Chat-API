@@ -40,7 +40,8 @@
       "Bash(make -n faq)",
       "Bash(make -n history)",
       "PowerShell(python -m py_compile helpers/test_script.py)",
-      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['app/services/streaming/stream_session.py','app/services/streaming/audio_buffer.py','app/services/streaming/connection_manager.py','app/services/pipeline/pipeline.py','app/services/verification/model_checks.py']]; print\\('OK'\\)\")"
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['app/services/streaming/stream_session.py','app/services/streaming/audio_buffer.py','app/services/streaming/connection_manager.py','app/services/pipeline/pipeline.py','app/services/verification/model_checks.py']]; print\\('OK'\\)\")",
+      "Bash(python -c \"from app.characters import prompts; print\\('OK', list\\(prompts.system_prompts\\), list\\(prompts.user_prompts\\)\\)\")"
     ]
   }
 }
