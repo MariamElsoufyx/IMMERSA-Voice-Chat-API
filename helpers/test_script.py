@@ -319,8 +319,12 @@ async def run_turn(websocket) -> bool:
     server_processing_done.clear()
 
     # choose input mode (or quit)
+    # NOTE: all interactive prompts run via asyncio.to_thread so the blocking
+    # input() never freezes the event loop. If it did, the websockets client
+    # couldn't answer the server's keepalive pings while the user is typing, and
+    # the server would time out the connection (abnormal close / code 1006).
     while True:
-        mode = input("\nInput mode — [m]icrophone / [t]ext / [f]ile / [q]uit: ").strip().lower()
+        mode = (await asyncio.to_thread(input, "\nInput mode — [m]icrophone / [t]ext / [f]ile / [q]uit: ")).strip().lower()
         if mode in ("m", "t", "f", "q"):
             break
         print("Please enter 'm', 't', 'f', or 'q'.")
@@ -329,7 +333,7 @@ async def run_turn(websocket) -> bool:
         return False
 
     if mode == "t":
-        user_text = input("Enter your message: ").strip()
+        user_text = (await asyncio.to_thread(input, "Enter your message: ")).strip()
         if not user_text:
             print("❌ No text entered. Skipping turn.")
             return True
@@ -340,7 +344,7 @@ async def run_turn(websocket) -> bool:
         await receiver_task
 
     elif mode == "f":
-        file_path = pick_test_file()
+        file_path = await asyncio.to_thread(pick_test_file)
         print(f"\n▶️  Using: {file_path}\n")
 
         receiver_task = asyncio.create_task(receiver(websocket))
@@ -349,7 +353,7 @@ async def run_turn(websocket) -> bool:
         await receiver_task
 
     else:
-        input("\n▶️ Press ENTER to start recording...\n")
+        await asyncio.to_thread(input, "\n▶️ Press ENTER to start recording...\n")
 
         # reset state
         stop_recording.clear()
