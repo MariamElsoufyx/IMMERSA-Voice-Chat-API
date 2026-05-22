@@ -10,7 +10,23 @@ def load_prompt(prompt_type=None, prompt_key=None):
     return prompts.user_prompts.get(prompt_key)
 
 
-def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, question=None, answer=None):
+def format_history_chunks(chunks=None) -> str:
+    """Render retrieved history chunks into the <history> block injected into the
+    system prompt. Accepts a list of HistoryChunk objects (or plain strings).
+    Returns a clear placeholder when nothing was retrieved so the model doesn't
+    see an empty block and hallucinate."""
+    if not chunks:
+        return "(No specific records were retrieved for this question.)"
+    parts = []
+    for i, c in enumerate(chunks, 1):
+        content = (getattr(c, "content", None) or str(c)).strip()
+        source = getattr(c, "source_doc", None)
+        header = f"[{i}]" + (f" (source: {source})" if source else "")
+        parts.append(f"{header}\n{content}")
+    return "\n\n".join(parts)
+
+
+def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, question=None, answer=None, retrieved_chunks=None):
     """Replace placeholders in the prompt with actual values."""
      
     if prompt_key is None:
@@ -32,6 +48,9 @@ def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, questi
         return None
 
     if prompt_type == "system":
+        # Fill the RAG grounding block when the prompt declares the placeholder.
+        if retrieved_chunks is not None and "{retrieved_chunks}" in prompt:
+            prompt = prompt.replace("{retrieved_chunks}", retrieved_chunks)
         return prompt
 
     if question is None:
@@ -61,7 +80,7 @@ def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, questi
     return prompt
 
 
-def build_narrator_prompts(character_id, question, prompt_key):
+def build_narrator_prompts(character_id, question, prompt_key, retrieved_chunks=None):
     user_prompt = generate_prompt(
         prompt_type="user",
         prompt_key=prompt_key,
@@ -71,7 +90,8 @@ def build_narrator_prompts(character_id, question, prompt_key):
 
     system_prompt = generate_prompt(
         prompt_type="system",
-        prompt_key="mohandeskhana-historical-narrator"
+        prompt_key="mohandeskhana-historical-narrator",
+        retrieved_chunks=format_history_chunks(retrieved_chunks),
     )
 
     return user_prompt, system_prompt

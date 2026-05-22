@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, Float, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,6 +35,37 @@ class FAQ(Base):
 
     def __repr__(self) -> str:
         return f"<FAQ id={self.id} character={self.character_id} question={self.question[:40]!r}>"
+
+
+class HistoryChunk(Base):
+    """A chunk of source college-history text used for RAG retrieval.
+
+    Unlike FAQ (pre-written Q&A pairs returned verbatim), these are passages of
+    source material. On an FAQ miss the top-K most similar chunks are retrieved
+    and injected into the LLM prompt as grounding context.
+    """
+    __tablename__ = "college_history_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)  # the chunk — embedded + injected into the prompt
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    # NULL = global history shared by every character; otherwise scoped to one character's era/department
+    character_id: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    source_doc: Mapped[str | None] = mapped_column(Text, nullable=True)   # origin file/document, for citations + re-indexing
+    chunk_index: Mapped[int | None] = mapped_column(Integer, nullable=True)  # position within source_doc
+    language: Mapped[str] = mapped_column(String(10), nullable=False, default="en")  # 'en' or 'ar'
+    tag: Mapped[str | None] = mapped_column(String(50), nullable=True)   # topic, e.g. 'founding', 'faculty'
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<HistoryChunk id={self.id} character={self.character_id} content={self.content[:40]!r}>"
 
 
 class PastQuestion(Base):

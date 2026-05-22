@@ -15,7 +15,20 @@
       "Bash(python -c 'import socket *)",
       "Bash(ipconfig /flushdns)",
       "Bash(nslookup erbhptjoxjfsaluylbeq.supabase.co 8.8.8.8)",
-      "PowerShell(try { Resolve-DnsName erbhptjoxjfsaluylbeq.supabase.co -Server 8.8.8.8 -ErrorAction Stop } catch { Write-Output \"NOT RESOLVED via 8.8.8.8: $\\($_.Exception.Message\\)\" })"
+      "PowerShell(try { Resolve-DnsName erbhptjoxjfsaluylbeq.supabase.co -Server 8.8.8.8 -ErrorAction Stop } catch { Write-Output \"NOT RESOLVED via 8.8.8.8: $\\($_.Exception.Message\\)\" })",
+      "Bash(python -m alembic heads)",
+      "Bash(python -c \"from app.db.models import HistoryChunk; from app.db.repositories import history_repository; print\\('imports OK:', HistoryChunk.__tablename__\\)\")",
+      "Bash(python -m alembic upgrade head)",
+      "Bash(python -c ' *)",
+      "Bash(python -m helpers.index_history)",
+      "Bash(IMMERSA/Scripts/python.exe -c \"import sentence_transformers; print\\('ok'\\)\")",
+      "Bash(IMMERSA/Scripts/python.exe -m helpers.index_history)",
+      "Bash(IMMERSA/Scripts/python.exe -m helpers.index_history --list)",
+      "Bash(IMMERSA/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -c ' *)",
+      "Bash(python -m alembic current)",
+      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -m helpers.index_history)",
+      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -m helpers.index_history --list)"
     ]
   }
 }

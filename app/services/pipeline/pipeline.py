@@ -27,6 +27,7 @@ from app.services.streaming.event_protocol import (
 from app.services.verification import Verifier
 from app.services.embedding_service import generate_query_embedding
 from app.db.repositories.faq_repository import search_similar_faq
+from app.db.repositories.history_repository import search_history_chunks
 from app.utils.log import log
 
 
@@ -306,11 +307,30 @@ class Pipeline:
                         await self._send_fallback_audio(session_id, character_id)
                         continue
 
+                # --- RAG: retrieve verified history to ground the LLM (FAQ miss path) ---
+                # Reuse the speculative embedding already computed during STT — same
+                # query embedding works for both FAQ and history search.
+                retrieved_chunks = []
+                if self.db_session_factory:
+                    t_rag = time.perf_counter()
+                    try:
+                        embedding = await self._resolve_embedding(transcript, spec_embed_task)
+                        retrieved_chunks = await asyncio.wait_for(
+                            self._retrieve_history(embedding, character_id),
+                            timeout=config.HISTORY_LOOKUP_TIMEOUT,
+                        )
+                    except asyncio.TimeoutError:
+                        log.warn("RAG", f"history retrieval timed out after {config.HISTORY_LOOKUP_TIMEOUT}s — answering ungrounded")
+                    except Exception as e:
+                        log.warn("RAG", f"history retrieval failed (non-fatal): {e}")
+                    log.detail(f"RAG retrieved {len(retrieved_chunks)} history chunk(s) ({(time.perf_counter()-t_rag)*1000:.0f}ms)")
+
                 prompt_key = config.get_prompt_key_by_character_id(character_id) if character_id else "mohandeskhana-student"
                 user_prompt, system_prompt = build_narrator_prompts(
                     character_id=character_id,
                     question=transcript,
                     prompt_key=prompt_key,
+                    retrieved_chunks=retrieved_chunks,
                 )
                 log.step("LLM", f"generating reply (model={config.openAI_model_name}, prompt_key={prompt_key})")
                 reply_raw = await asyncio.to_thread(self.llm_service.generate_reply, user_prompt, system_prompt)
@@ -692,6 +712,23 @@ class Pipeline:
         # No temp file → no Windows file-locking issues, no librosa/audioread fallback.
         audio = self.audio_preprocessor.load_audio_from_wav_bytes(audio_bytes)
         return self.audio_preprocessor.process_audio(audio)
+
+    async def _resolve_embedding(self, transcript: str, spec_embed_task: asyncio.Task = None) -> list[float]:
+        """Return the query embedding, reusing the speculative task if it succeeded.
+        Awaiting an already-finished task just returns its stored result, so this is
+        safe even though _lookup_faq awaited the same task earlier."""
+        if spec_embed_task is not None:
+            try:
+                return await spec_embed_task
+            except Exception:
+                pass
+        return await asyncio.to_thread(generate_query_embedding, transcript)
+
+    async def _retrieve_history(self, embedding: list[float], character_id: str) -> list:
+        """Vector-search the college-history KB for grounding chunks (scoped to this
+        character + global). Returns [] on any failure — RAG is best-effort."""
+        async with self.db_session_factory() as db:
+            return await search_history_chunks(db, embedding, character_id)
 
     async def _lookup_faq(self, transcript: str, character_id: str, spec_embed_task: asyncio.Task = None):
         """Embed the transcript and find the best-matching FAQ.

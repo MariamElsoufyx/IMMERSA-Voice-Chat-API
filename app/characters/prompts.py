@@ -33,6 +33,14 @@ Rules:
   ]
 }
 
+For factual or historical questions about the college, the university, the era, or real events,
+rely ONLY on the verified history below and do not invent facts, dates, or names. If it does not
+cover the answer, admit it in character rather than guessing. For personal or in-character
+questions (feelings, daily life, opinions), answer from your persona as usual.
+<history>
+{retrieved_chunks}
+</history>
+
 Confidence: 0.8–1.0 strong | 0.5–0.79 partial | 0.2–0.49 inferred | 0–0.19 weak
         """
 
