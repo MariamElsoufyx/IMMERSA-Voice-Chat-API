@@ -10,6 +10,7 @@ Typical numbers:
 Thread-safety: reads are lock-free (numpy arrays are immutable after build).
 """
 import json
+import time
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -110,6 +111,7 @@ class FAQMemoryCache:
             print(f"   ↳ [FAQ CACHE] no FAQs for character '{cid}'")
             return None
 
+        t0 = time.perf_counter()
         q = np.array(query_embedding, dtype=np.float32)
         norm = float(np.linalg.norm(q))
         if norm > 0:
@@ -121,14 +123,14 @@ class FAQMemoryCache:
 
         best_idx = int(np.argmax(similarities))
         best_score = float(similarities[best_idx])
+        elapsed_ms = (time.perf_counter() - t0) * 1000
 
-        print(f"   ↳ [FAQ CACHE] best match: {best_score:.4f} (threshold: {threshold})")
         if best_score < threshold:
-            print(f"   ↳ [FAQ CACHE] below threshold — no match")
+            print(f"   ↳ [FAQ CACHE] best match {best_score:.4f} (threshold {threshold}) — no match ({elapsed_ms:.1f}ms)")
             return None
 
         faq = entries[best_idx][0]
-        print(f"   ↳ [FAQ CACHE] matched: {faq.question[:60]!r}")
+        print(f"   ↳ [FAQ CACHE] best match {best_score:.4f} (threshold {threshold}) — matched {faq.question[:60]!r} ({elapsed_ms:.1f}ms)")
         return faq
 
     # ------------------------------------------------------------------

@@ -7,7 +7,6 @@ class AudioBufferService:
 
     def add_chunk(self, audio_chunk: str) -> None:
         self.chunks.append(audio_chunk)
-        print(f"🎧 [BUFFER ADD CHUNK] chunk_added=True | total_chunks={len(self.chunks)}")
 
     def get_chunk_count(self) -> int:
         return len(self.chunks)

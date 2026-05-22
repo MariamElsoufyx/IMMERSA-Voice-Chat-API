@@ -75,11 +75,11 @@ async def lifespan(app: FastAPI):
     app.state.connection_manager = connection_manager
     app.state.pipeline = pipeline
     pipeline.start()
-    print("🎉 [STARTUP] Done")
+    print("🎉 [STARTUP] Done\n_____________________________________________\n")  # separator for clearer logs
 
     yield
 
-    print("🛑 [SHUTDOWN] Shutting down...")
+    print("\n_____________________________________________\n🛑 [SHUTDOWN] Shutting down...")
 
 
 app = FastAPI(title="Mohandeskhana Voice Chat WebSocket API", lifespan=lifespan)

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import HISTORY_TOP_K, HISTORY_SIMILARITY_THRESHOLD
 from app.db.models import HistoryChunk
+from app.utils.log import log
 
 
 async def get_all_chunks(db: AsyncSession) -> list[HistoryChunk]:
@@ -95,6 +96,18 @@ async def search_history_chunks(
         "limit": limit,
     })
     rows = result.mappings().all()
+
+    # Always surface the closest match — even on a miss — so the threshold can be tuned.
+    if rows:
+        best = float(rows[0]["similarity"])
+        scores = ", ".join(f"{float(r['similarity']):.4f}" for r in rows)
+        if best < threshold:
+            log.info("RAG", f"no chunk cleared threshold {threshold} — closest similarity: {best:.4f}")
+        else:
+            log.info("RAG", f"best similarity: {best:.4f} (threshold: {threshold})")
+        log.detail(f"top-{len(rows)} scores: [{scores}]")
+    else:
+        log.info("RAG", f"no chunks in scope (character={cid or 'global'})")
 
     chunks: list[HistoryChunk] = []
     for row in rows:

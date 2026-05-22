@@ -50,7 +50,6 @@ def _moderate_sync(openai_client, text: str) -> tuple[bool, list[str]]:
 async def check_moderation(openai_client, text: str, *, name: str) -> CheckResult:
     """Run OpenAI Moderation on `text`. `name` differentiates question vs answer."""
     label = name.split(".")[-1]  # "moderation_question" / "moderation_answer"
-    log.step("MODELS", f"{label} (model={MODERATION_MODEL})")
     t0 = time.perf_counter()
     try:
         passed, flagged = await asyncio.to_thread(_moderate_sync, openai_client, text)
@@ -104,7 +103,6 @@ async def check_llm_judge(
     fallback_emotion: str | None = None,
 ) -> CheckResult:
     """Multi-criterion LLM judge. Stuffs `corrected_answer` / `corrected_emotion` into details."""
-    log.step("MODELS", f"llm_judge (model={config.openai_verifier_model_name}, character={character_id})")
     t0 = time.perf_counter()
     if not openai_client:
         log.warn("MODELS", "llm_judge skipped — no openai_client")

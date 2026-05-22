@@ -8,8 +8,6 @@ Each line carries TWO emojis you can scan visually:
 * The TAG emoji identifies the subsystem  (🧠 LLM, 📚 FAQ, 🛡️ VERIFY, ...)
 * The LEVEL emoji identifies what happened (🚀 starting, ✅ ok, ❌ fail, ⚠️ warn, ℹ️ info)
 
-Tags are padded to 6 characters so columns line up across subsystems.
-
 Usage:
     from app.utils.log import log
 
@@ -29,6 +27,7 @@ TAG_EMOJI = {
     "STT":    "🎤",   # speech-to-text (input)
     "LLM":    "🧠",   # language model (narrator)
     "FAQ":    "📚",   # FAQ knowledge base
+    "RAG":    "🔎",   # history retrieval (grounding the LLM)
     "REGEX":  "🔤",   # regex layer (profanity / anachronism)
     "MODELS": "🤖",   # OpenAI models layer (moderation / llm_judge)
     "VERIFY": "🛡️",   # verification orchestrator
@@ -55,7 +54,7 @@ _DETAIL_INDENT = " " * 16
 
 def _tag_prefix(tag: str) -> str:
     icon = TAG_EMOJI.get(tag, "🔘")
-    return f"{icon} [{tag:<6}]"
+    return f"{icon} [{tag}]"
 
 
 class _Logger:

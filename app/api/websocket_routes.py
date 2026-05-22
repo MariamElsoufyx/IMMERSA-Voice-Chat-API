@@ -62,7 +62,6 @@ async def websocket_voice_chat(websocket: WebSocket):
     await websocket.accept()
     await manager.connect(session_id, websocket)
     await manager.send_json(session_id, build_connection_established_event(session_id))
-    print(f"[WS CONNECTED] session_id={session_id}")
 
     try:
         while True:
@@ -168,7 +167,7 @@ async def websocket_voice_chat(websocket: WebSocket):
                 await manager.send_json(session_id, build_error_event(f"Unknown message type: {msg_type}"))
 
     except WebSocketDisconnect:
-        print(f"[WS DISCONNECTED] session_id={session_id}")
+        pass
     except Exception as e:
         print(f"[WS ERROR] session_id={session_id} | {e}")
         try:
@@ -177,4 +176,3 @@ async def websocket_voice_chat(websocket: WebSocket):
             pass
     finally:
         manager.disconnect(session_id)
-        print(f"[WS CLOSED] session_id={session_id}")

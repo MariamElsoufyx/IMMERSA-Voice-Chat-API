@@ -307,6 +307,71 @@ async def receiver(websocket):
             print("🔊 Playback finished")
 
 
+async def run_turn(websocket) -> bool:
+    """Run a single send/receive turn on an already-open connection.
+
+    Returns False when the user chooses to quit (so the caller closes the
+    connection), True to keep the connection open for another turn.
+    """
+    # reset per-turn latency tracking and the processing-done event
+    timing["end_of_utterance_sent_at"] = None
+    timing["first_chunk_received_at"] = None
+    server_processing_done.clear()
+
+    # choose input mode (or quit)
+    while True:
+        mode = input("\nInput mode — [m]icrophone / [t]ext / [f]ile / [q]uit: ").strip().lower()
+        if mode in ("m", "t", "f", "q"):
+            break
+        print("Please enter 'm', 't', 'f', or 'q'.")
+
+    if mode == "q":
+        return False
+
+    if mode == "t":
+        user_text = input("Enter your message: ").strip()
+        if not user_text:
+            print("❌ No text entered. Skipping turn.")
+            return True
+
+        receiver_task = asyncio.create_task(receiver(websocket))
+        await sender_text(websocket, user_text)
+        await server_processing_done.wait()
+        await receiver_task
+
+    elif mode == "f":
+        file_path = pick_test_file()
+        print(f"\n▶️  Using: {file_path}\n")
+
+        receiver_task = asyncio.create_task(receiver(websocket))
+        await sender_file(websocket, file_path)
+        await server_processing_done.wait()
+        await receiver_task
+
+    else:
+        input("\n▶️ Press ENTER to start recording...\n")
+
+        # reset state
+        stop_recording.clear()
+        while not audio_queue.empty():
+            try:
+                audio_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        stopper_thread = threading.Thread(target=wait_for_enter_to_stop, daemon=True)
+        stopper_thread.start()
+
+        sender_task = asyncio.create_task(sender(websocket))
+        receiver_task = asyncio.create_task(receiver(websocket))
+
+        await sender_task
+        await server_processing_done.wait()
+        await receiver_task
+
+    return True
+
+
 async def main():
     async with websockets.connect(WS_URL, max_size=None, ping_interval=None, ping_timeout=None) as websocket:
         # 1) connection_established
@@ -326,57 +391,17 @@ async def main():
         msg = await websocket.recv()
         print("RECV:", msg)
 
-        # reset latency tracking for this run
-        timing["end_of_utterance_sent_at"] = None
-        timing["first_chunk_received_at"] = None
-
-        # choose input mode
-        while True:
-            mode = input("\nInput mode — [m]icrophone / [t]ext / [f]ile: ").strip().lower()
-            if mode in ("m", "t", "f"):
-                break
-            print("Please enter 'm', 't', or 'f'.")
-
-        if mode == "t":
-            user_text = input("Enter your message: ").strip()
-            if not user_text:
-                print("❌ No text entered. Exiting.")
-                return
-
-            receiver_task = asyncio.create_task(receiver(websocket))
-            await sender_text(websocket, user_text)
-            await server_processing_done.wait()
-            await receiver_task
-
-        elif mode == "f":
-            file_path = pick_test_file()
-            print(f"\n▶️  Using: {file_path}\n")
-
-            receiver_task = asyncio.create_task(receiver(websocket))
-            await sender_file(websocket, file_path)
-            await server_processing_done.wait()
-            await receiver_task
-
-        else:
-            input("\n▶️ Press ENTER to start recording...\n")
-
-            # reset state
-            stop_recording.clear()
-            while not audio_queue.empty():
-                try:
-                    audio_queue.get_nowait()
-                except queue.Empty:
+        # Keep the connection open across multiple turns so conversation memory
+        # persists. The user types 'q' to close (which clears history server-side).
+        try:
+            while True:
+                keep_going = await run_turn(websocket)
+                if not keep_going:
                     break
+        except websockets.ConnectionClosed as e:
+            print(f"⚠️  Connection closed by server (code={e.code}): {e.reason or 'no reason given'}")
 
-            stopper_thread = threading.Thread(target=wait_for_enter_to_stop, daemon=True)
-            stopper_thread.start()
-
-            sender_task = asyncio.create_task(sender(websocket))
-            receiver_task = asyncio.create_task(receiver(websocket))
-
-            await sender_task
-            await server_processing_done.wait()
-            await receiver_task
+        print("👋 Closing connection.")
 
 
 if __name__ == "__main__":

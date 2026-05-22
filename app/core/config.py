@@ -29,6 +29,8 @@ SST_beam_size = 2
 #LLM 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+openAI_model_name="gpt-5-nano"
+openai_max_tokens = 600 
 openai_verifier_model_name = "gpt-4.1-nano"
 openai_verifier_max_tokens = 600                    # enough for all 5 JSON fields with notes + corrected_answer when verification fails
 VERIFIER_TIMEOUT = 10.0   # seconds — if OpenAI doesn't respond in time, pass through to TTS
@@ -65,9 +67,12 @@ QUESTIONS_AUDIO_BUCKET = os.getenv("SUPABASE_QUESTIONS_BUCKET", "question-audios
 SIMILARITY_THRESHOLD = 0.8
 FAQ_LOOKUP_TIMEOUT = 2.0   # seconds — if DB doesn't respond in time, skip FAQ and fall through to LLM
 
+#conversation memory (per-WS-session multi-turn context passed to the LLM)
+CONVERSATION_HISTORY_MAX_TURNS = 6  # keep last N (question, answer) pairs; older turns are dropped
+
 #RAG (history retrieval — used on FAQ miss to ground the LLM)
-HISTORY_TOP_K = 4                  # number of history chunks to inject into the prompt
-HISTORY_SIMILARITY_THRESHOLD = 0.5 # looser than FAQ — we want context even on a partial match
+HISTORY_TOP_K = 6                  # number of history chunks to inject into the prompt
+HISTORY_SIMILARITY_THRESHOLD = 0.35 # looser than FAQ — we want context even on a partial match
 HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds — skip retrieval and answer without grounding if slow
 
 

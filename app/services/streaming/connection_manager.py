@@ -15,8 +15,6 @@ class ConnectionManager:
     async def connect(self, session_id: str, websocket: WebSocket):
         self.active_connections[session_id] = websocket
 
-        print(f"🟢 [MANAGER CONNECT] session_id={session_id}")
-
     def disconnect(self, session_id: str):
         if session_id in self.active_connections:
             del self.active_connections[session_id]
@@ -25,13 +23,11 @@ class ConnectionManager:
             self.sessions[session_id].close()
             del self.sessions[session_id]
 
-        print(f"🔴 [MANAGER DISCONNECT] session_id={session_id}")
+        print(f"🔴 [DISCONNECTED] sid={session_id[:8]} | session closed")
 
     def create_session(self, session_id: str) -> StreamSession:
         session = StreamSession(session_id=session_id)
         self.sessions[session_id] = session
-
-        print(f"🆕 [SESSION CREATED] session_id={session_id}")
         return session
 
     def get_session(self, session_id: str) -> StreamSession:
@@ -43,9 +39,9 @@ class ConnectionManager:
         if websocket:
             await websocket.send_json(data)
         else:
-            print(f"⚠️ MANAGER:  [SEND FAILED] No websocket for session_id={session_id}")
+            print(f"⚠️ MANAGER:  [SEND FAILED] No websocket for sid={session_id[:8]}")
 
     async def broadcast(self, data: dict):
         for session_id, websocket in self.active_connections.items():
             await websocket.send_json(data)
-            print(f"📡 [BROADCAST] session_id={session_id} | data_type={data.get('type')}")
+            print(f"📡 [BROADCAST] sid={session_id[:8]} | data_type={data.get('type')}")

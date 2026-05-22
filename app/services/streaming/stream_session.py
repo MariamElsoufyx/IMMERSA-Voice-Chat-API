@@ -23,11 +23,20 @@ class StreamSession:
     partial_transcripts: list = field(default_factory=list)
     processed_chunk_count: int = 0
     wav_header: bytes = field(default_factory=bytes)
+    # Multi-turn conversation memory for THIS websocket connection.
+    # List of {"role": "user"|"assistant", "content": str}, oldest first.
+    # Reset only when the connection ends (see close()), NOT between utterances.
+    conversation_history: list = field(default_factory=list)
+
+    @property
+    def sid(self) -> str:
+        """Short session id for readable logs."""
+        return self.session_id[:8]
 
     def append_partial_transcript(self, text: str) -> None:
         if text.strip():
             self.partial_transcripts.append(text.strip())
-            print(f"[STT PARTIAL] session_id={self.session_id} | partial={text[:60]}")
+            print(f"[STT PARTIAL] sid={self.sid} | partial={text[:60]}")
 
     def get_combined_transcript(self) -> str:
         return " ".join(self.partial_transcripts).strip()
@@ -48,9 +57,8 @@ class StreamSession:
         self.touch()
 
         print(
-            f"🚀 [SESSION STARTED] session_id={self.session_id} | "
-            f"character_id={self.character_id} | sample_rate={self.sample_rate} | "
-            f"audio_format={self.audio_format} | state={self.state}"
+            f"🚀 [SESSION STARTED] sid={self.sid} | "
+            f"character={self.character_id} | state={self.state}"
         )
 
     def add_audio_chunk(self, audio_chunk: str) -> None:
@@ -58,18 +66,13 @@ class StreamSession:
         self.dead_time_start = time.time()
         self.touch()
 
-        print(
-            f"🎧 [AUDIO CHUNK ADDED] session_id={self.session_id} | "
-            f"total_chunks={self.audio_buffer.get_chunk_count()}"
-        )
-
     def set_final_transcript(self, text: str) -> None:
         self.final_transcript = text
         self.state = "FINALIZING_TRANSCRIPT"
         self.touch()
 
         print(
-            f"📝 [FINAL TRANSCRIPT SET] session_id={self.session_id} | "
+            f"📝 [FINAL TRANSCRIPT SET] sid={self.sid} | "
             f"state={self.state} | text={self.final_transcript}"
         )
 
@@ -80,19 +83,47 @@ class StreamSession:
         self.state = "GENERATING_REPLY"
         self.touch()
 
-        print(
-            f"🤖 [REPLY TEXT SET] session_id={self.session_id} | "
-            f"state={self.state} | emotion={self.emotion} | text={self.reply_text}"
-        )
-
     def set_state(self, new_state: str) -> None:
         old_state = self.state
         self.state = new_state
         self.touch()
 
         print(
-            f"🔄 [STATE CHANGED] session_id={self.session_id} | "
+            f"🔄 [STATE CHANGED] sid={self.sid} | "
             f"from={old_state} | to={new_state}"
+        )
+
+    def append_turn(self, question: str, answer: str) -> None:
+        """Record a completed (question, answer) exchange into conversation memory,
+        trimming to the last config.CONVERSATION_HISTORY_MAX_TURNS pairs."""
+        question = (question or "").strip()
+        answer = (answer or "").strip()
+        if not question or not answer:
+            return
+        self.conversation_history.append({"role": "user", "content": question})
+        self.conversation_history.append({"role": "assistant", "content": answer})
+
+        # Trim to the last N pairs (2 messages per turn).
+        max_messages = config.CONVERSATION_HISTORY_MAX_TURNS * 2
+        if len(self.conversation_history) > max_messages:
+            self.conversation_history = self.conversation_history[-max_messages:]
+        self.touch()
+
+        print(
+            f"💬 [HISTORY APPENDED] sid={self.sid} | "
+            f"turns={len(self.conversation_history) // 2}"
+        )
+
+    def get_history(self) -> list:
+        """Return a copy of the conversation history as chat messages (oldest first)."""
+        return list(self.conversation_history)
+
+    def clear_history(self) -> None:
+        cleared = len(self.conversation_history) // 2
+        self.conversation_history = []
+        self.touch()
+        print(
+            f"🧽 [HISTORY CLEARED] sid={self.sid} | cleared_turns={cleared}"
         )
 
     def get_audio_chunk_count(self) -> int:
@@ -107,7 +138,7 @@ class StreamSession:
         self.touch()
 
         print(
-            f"🧹 [AUDIO BUFFER CLEARED] session_id={self.session_id} | "
+            f"🧹 [AUDIO BUFFER CLEARED] sid={self.sid} | "
             f"cleared_chunks={chunks_before_clear}"
         )
 
@@ -126,17 +157,15 @@ class StreamSession:
         self.touch()
 
         print(
-            f"♻️ [SESSION RESET FOR NEXT UTTERANCE] session_id={self.session_id} | "
+            f"♻️ [SESSION RESET FOR NEXT UTTERANCE] sid={self.sid} | "
             f"cleared_chunks={chunks_before_reset} | state={self.state}"
         )
 
     def close(self) -> None:
         self.state = "CLOSED"
+        # Conversation memory lives only for the duration of the connection.
+        self.conversation_history = []
         self.touch()
-
-        print(
-            f"🔒 [SESSION CLOSED] session_id={self.session_id} | state={self.state}"
-        )
 
     def to_dict(self) -> dict:
         return {

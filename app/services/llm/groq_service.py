@@ -8,11 +8,11 @@ class LLMGroqService:
         self.max_completion_tokens = config.groq_max_completion_tokens
         print(f"✅ [LLM] Groq LLM ready (model={self.model_name})")
 
-    def generate_reply(self, user_prompt, system_prompt):
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+    def generate_reply(self, user_prompt, system_prompt, history=None):
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_prompt})
         try:
             stream = self.client.chat.completions.create(
                 model=self.model_name,

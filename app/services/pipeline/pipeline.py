@@ -83,6 +83,8 @@ class Pipeline:
                 "faq_lookup": None,
                 "faq_hit": False,
                 "faq_audio_url": None,
+                "rag": None,
+                "rag_chunks": None,
                 "llm": None,
                 "content_filter": None,
                 "content_filter_pass": None,
@@ -128,6 +130,8 @@ class Pipeline:
         if t["faq_lookup"] is not None:
             hit_label = "HIT ✅" if t["faq_hit"] else "miss ❌"
             lines.append(f"  FAQ lookup  ({hit_label})  : {t['faq_lookup']:.3f}s")
+        if t["rag"] is not None:
+            lines.append(f"  RAG ({t['rag_chunks']} chunk(s))       : {t['rag']:.3f}s")
         if t["llm"] is not None:
             lines.append(f"  LLM                    : {t['llm']:.3f}s")
         if t["content_filter"] is not None:
@@ -155,6 +159,26 @@ class Pipeline:
         lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         report = "\n".join(lines)
         print(report)
+
+    @staticmethod
+    def _log_history(session_id: str, history: list | None):
+        """Print the conversation memory being fed to the LLM this turn."""
+        turns = len(history) // 2 if history else 0
+        lines = [
+            "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄",
+            f"  🧠 CONVERSATION HISTORY  —  sid={session_id[:8]}  ({turns} turn(s))",
+            "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄",
+        ]
+        if not history:
+            lines.append("  (empty — first turn of this connection)")
+        else:
+            for msg in history:
+                role = msg.get("role", "?")
+                tag = "👤 user " if role == "user" else "🎭 reply"
+                content = (msg.get("content") or "").replace("\n", " ")
+                lines.append(f"  {tag} : {content}")
+        lines.append("┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+        print("\n".join(lines))
 
     async def enqueue(self, session_id: str, audio_bytes: bytes, is_final: bool = False):
         await self.preprocess_queue.put((session_id, audio_bytes, is_final))
@@ -271,6 +295,9 @@ class Pipeline:
                         parsed = {"answer": faq.answer, "sources": [], "emotion": faq_emotion}
                         if session:
                             session.set_reply_text(parsed)
+                            # FAQ hits skip the LLM but must still be recorded so the
+                            # conversation stays coherent across turns.
+                            session.append_turn(transcript, faq.answer)
                         await self.connection_manager.send_json(session_id, build_reply_text_done_event(faq.answer, emotion=faq_emotion))
 
                         if faq.audio_url:
@@ -323,7 +350,9 @@ class Pipeline:
                         log.warn("RAG", f"history retrieval timed out after {config.HISTORY_LOOKUP_TIMEOUT}s — answering ungrounded")
                     except Exception as e:
                         log.warn("RAG", f"history retrieval failed (non-fatal): {e}")
-                    log.detail(f"RAG retrieved {len(retrieved_chunks)} history chunk(s) ({(time.perf_counter()-t_rag)*1000:.0f}ms)")
+                    self._t(session_id)["rag"] = time.perf_counter() - t_rag
+                    self._t(session_id)["rag_chunks"] = len(retrieved_chunks)
+                    log.ok("RAG", f"retrieved {len(retrieved_chunks)} history chunk(s) ({self._t(session_id)['rag']*1000:.0f}ms)")
 
                 prompt_key = config.get_prompt_key_by_character_id(character_id) if character_id else "mohandeskhana-student"
                 user_prompt, system_prompt = build_narrator_prompts(
@@ -332,8 +361,12 @@ class Pipeline:
                     prompt_key=prompt_key,
                     retrieved_chunks=retrieved_chunks,
                 )
-                log.step("LLM", f"generating reply (model={config.openAI_model_name}, prompt_key={prompt_key})")
-                reply_raw = await asyncio.to_thread(self.llm_service.generate_reply, user_prompt, system_prompt)
+                # Conversation memory for this connection (excludes the current turn,
+                # which we append only after the reply is finalized below).
+                history = session.get_history() if session else None
+                self._log_history(session_id, history)
+                log.step("LLM", f"generating reply (history_turns={len(history) // 2 if history else 0})")
+                reply_raw = await asyncio.to_thread(self.llm_service.generate_reply, user_prompt, system_prompt, history)
                 self._t(session_id)["llm"] = time.perf_counter() - t0
                 parsed = self._parse_llm_reply(reply_raw)
                 emotion = parsed.get("emotion")
@@ -373,6 +406,9 @@ class Pipeline:
 
                 if session:
                     session.set_reply_text(parsed)
+                    # Commit this exchange to conversation memory. If the verifier later
+                    # produces a corrected answer, _run_verification updates this entry.
+                    session.append_turn(transcript, parsed["answer"])
 
                 await self.connection_manager.send_json(session_id, build_reply_text_done_event(parsed["answer"], emotion=emotion))
                 # TTS starts immediately — verification races alongside it
@@ -422,7 +458,7 @@ class Pipeline:
                 try:
                     await asyncio.wait_for(event.wait(), timeout=15.0)
                 except asyncio.TimeoutError:
-                    log.warn("VERIFY", f"timed out waiting for TTS to finish (session={session_id})")
+                    log.warn("VERIFY", f"timed out waiting for TTS to finish (sid={session_id[:8]})")
 
             # Always clear the abort flag once TTS has stopped — _stream_tts_live only
             # consumes it when it sees it mid-stream, so a flag added after TTS already
@@ -445,6 +481,11 @@ class Pipeline:
                 log.detail(f"corrected_emotion : {corrected_emotion}")
                 self._t(session_id)["verifier_corrected_answer"] = corrected
                 self._t(session_id)["verifier_corrected_emotion"] = corrected_emotion
+                # Keep conversation memory in sync with what the user actually hears:
+                # overwrite the last assistant turn (set in _llm_worker) with the correction.
+                session = self.connection_manager.get_session(session_id)
+                if session and session.conversation_history and session.conversation_history[-1]["role"] == "assistant":
+                    session.conversation_history[-1]["content"] = corrected
                 await self.connection_manager.send_json(session_id, build_reply_text_done_event(corrected, emotion=corrected_emotion))
                 # Play the static verify audio first; suppress its `done` signal so the
                 # corrected TTS that follows can stream into the same utterance.
@@ -453,6 +494,11 @@ class Pipeline:
                 await self.tts_queue.put((session_id, corrected))
             else:
                 log.fail("VERIFY", "no corrected_answer — playing verify audio")
+                # The rejected answer never reached the user (verify audio plays instead),
+                # so drop it from conversation memory to avoid poisoning later turns.
+                session = self.connection_manager.get_session(session_id)
+                if session and session.conversation_history and session.conversation_history[-1]["role"] == "assistant":
+                    session.conversation_history = session.conversation_history[:-2]
                 await self._send_verifier_fallback_audio(session_id, character_id)
 
         except Exception as e:
@@ -496,7 +542,7 @@ class Pipeline:
                 await self._send_fallback_audio(session_id, character_id)
 
             except Exception as e:
-                log.fail("TTS", f"streaming failed (session={session_id}): {e}")
+                log.fail("TTS", f"streaming failed (sid={session_id[:8]}): {e}")
                 self._tts_error_sessions.add(session_id)
                 event = self._tts_done_events.pop(session_id, None)
                 if event:
@@ -615,7 +661,7 @@ class Pipeline:
 
             if session_id in self._verify_abort:
                 self._verify_abort.discard(session_id)
-                log.fail("TTS", f"verifier abort — cutting stream (session={session_id})")
+                log.fail("TTS", f"verifier abort — cutting stream (sid={session_id[:8]})")
                 return False
 
             await self.send_queue.put((session_id, item, chunk_index))
@@ -640,18 +686,25 @@ class Pipeline:
                     if session and self.db_session_factory:
                         question_wav = self._assemble_question_wav(session)
 
-                    if session:
-                        if session.dead_time_start:
-                            self._t(session_id)["total"] = time.time() - session.dead_time_start
-                        session.audio_buffer.clear()
-                        session.set_state("LISTENING")
+                    if session and session.dead_time_start:
+                        self._t(session_id)["total"] = time.time() - session.dead_time_start
 
                     # Snapshot timings + audio before _print_report pops them, then save in background
                     t = self._timings.get(session_id, {}).copy()
                     chunks = collected_audio.pop(session_id, [])
                     self._print_report(session_id)
                     if self.db_session_factory and session:
-                        asyncio.create_task(self._save_past_question(session, t, chunks, question_wav))
+                        # Snapshot Q/A now — reset_for_next_utterance() below clears these,
+                        # and _save_past_question reads them after its own awaits.
+                        question_text = session.final_transcript
+                        answer_text = session.reply_text
+                        asyncio.create_task(self._save_past_question(session, t, chunks, question_wav, question_text, answer_text))
+
+                    # Reset per-utterance state so the NEXT turn on this same connection
+                    # starts clean. Preserves conversation_history (multi-turn memory).
+                    if session:
+                        session.reset_for_next_utterance()
+
                     await self.connection_manager.send_json(session_id, build_tts_done_event())
                 else:
                     if not first_chunk_sent.get(session_id):
@@ -669,7 +722,7 @@ class Pipeline:
                         build_tts_audio_chunk_event(chunk_index=chunk_index, audio=encoded),
                     )
             except Exception as e:
-                log.fail("PIPE", f"send worker error (session={session_id}): {e}")
+                log.fail("PIPE", f"send worker error (sid={session_id[:8]}): {e}")
 
     # --- Helpers ---
 
@@ -761,11 +814,9 @@ class Pipeline:
 
             # Search: memory index first, DB fallback
             if self.faq_memory_cache and self.faq_memory_cache.is_loaded:
-                t_search = time.perf_counter()
                 result = await asyncio.to_thread(
                     self.faq_memory_cache.search, embedding, character_id
                 )
-                log.detail(f"in-memory search ({(time.perf_counter() - t_search)*1000:.1f}ms)")
             elif self.db_session_factory:
                 t_db = time.perf_counter()
                 async with self.db_session_factory() as db:
@@ -789,7 +840,7 @@ class Pipeline:
                 audio_bytes = response.content
 
             await self.send_queue.put((session_id, audio_bytes, 0))
-            log.ok("AUDIO", f"sent cached audio (session={session_id})")
+            log.ok("AUDIO", f"sent cached audio (sid={session_id[:8]})")
         except Exception as e:
             log.warn("AUDIO", f"failed to fetch cached audio: {e} — falling back to TTS")
             # audio_url fetch failed — signal done so session resets cleanly
@@ -817,7 +868,7 @@ class Pipeline:
             sf.write(wav_buf, audio, sr, format="WAV", subtype="PCM_16")
             await self.send_queue.put((session_id, wav_buf.getvalue(), 0))
             sent = True
-            log.ok("AUDIO", f"sent verify audio ({filename}) → session={session_id}")
+            log.ok("AUDIO", f"sent verify audio ({filename}) → sid={session_id[:8]}")
         except Exception as e:
             log.warn("AUDIO", f"could not load verify audio: {e} — falling back to default")
             await self._send_fallback_audio(session_id, character_id, send_done=send_done)
@@ -845,7 +896,7 @@ class Pipeline:
             wav_buf = io.BytesIO()
             sf.write(wav_buf, audio, sr, format="WAV", subtype="PCM_16")
             await self.send_queue.put((session_id, wav_buf.getvalue(), 0))
-            log.ok("AUDIO", f"sent fallback audio ({filename}) → session={session_id}")
+            log.ok("AUDIO", f"sent fallback audio ({filename}) → sid={session_id[:8]}")
         except Exception as e:
             log.warn("AUDIO", f"could not load fallback audio: {e}")
         finally:
@@ -868,7 +919,6 @@ class Pipeline:
                 log.info("AUDIO", "question buffer empty — nothing to assemble")
                 return None
             decoded = [base64.b64decode(c) for c in chunks_b64]
-            log.step("AUDIO", f"assembling question wav ({len(decoded)} chunks, format={session.audio_format}, sr={session.sample_rate})")
 
             if session.audio_format == "pcm16_base64_chunks":
                 raw_pcm = b"".join(decoded)
@@ -884,7 +934,7 @@ class Pipeline:
                 log.fail("AUDIO", "raw_pcm empty after assembly")
                 return None
             wav = self._pcm_chunk_to_wav(raw_pcm, sample_rate=session.sample_rate, channels=1)
-            log.ok("AUDIO", f"question wav assembled ({len(wav)} bytes)")
+            log.ok("AUDIO", f"question wav assembled ({len(decoded)} chunks, {len(wav)} bytes)")
             return wav
         except Exception as e:
             log.fail("AUDIO", f"question assembly failed: {e}")
@@ -913,7 +963,6 @@ class Pipeline:
                 )
             if response.status_code in (200, 201):
                 public_url = f"{config.SUPABASE_URL}/storage/v1/object/public/{config.QUESTIONS_AUDIO_BUCKET}/{filename}"
-                log.detail(f"question audio uploaded → {public_url}")
                 return public_url
             log.detail(f"question audio upload failed: HTTP {response.status_code} (bucket={config.QUESTIONS_AUDIO_BUCKET}) — {response.text}")
             return None
@@ -958,7 +1007,6 @@ class Pipeline:
                 )
             if response.status_code in (200, 201):
                 public_url = f"{config.SUPABASE_URL}/storage/v1/object/public/{config.RESPONSES_AUDIO_BUCKET}/{filename}"
-                log.detail(f"response audio uploaded → {public_url}")
                 return public_url
             else:
                 log.detail(f"response audio upload failed: HTTP {response.status_code} — {response.text}")
@@ -967,21 +1015,23 @@ class Pipeline:
             log.detail(f"response audio combine/upload error: {e}")
             return None
 
-    async def _save_past_question(self, session, timings: dict, wav_chunks: list[bytes], question_wav: bytes | None = None):
+    async def _save_past_question(self, session, timings: dict, wav_chunks: list[bytes], question_wav: bytes | None = None, question_text: str | None = None, answer_text: str | None = None):
         """Fire-and-forget: combine audio, upload to storage, save interaction to past_questions.
-        Runs as a background task so it never blocks the pipeline."""
+        Runs as a background task so it never blocks the pipeline.
+
+        question_text/answer_text are snapshotted by the caller before the session is
+        reset for the next utterance — prefer them over live session fields, which may
+        already be cleared by the time this task's awaits resolve."""
         try:
             character_id = (session.character_id or "").lower()
 
             # Use FAQ cached audio URL if already available, otherwise upload the streamed audio
             audio_url = timings.get("faq_audio_url")
             if not audio_url and wav_chunks:
-                log.step("DB", f"uploading response audio ({len(wav_chunks)} chunks)")
                 audio_url = await self._combine_and_upload_audio(wav_chunks, character_id)
 
             question_audio_url: str | None = None
             if question_wav:
-                log.step("DB", f"uploading question audio ({len(question_wav)} bytes)")
                 question_audio_url = await self._upload_question_audio(question_wav, character_id)
             else:
                 log.info("DB", "no question audio to upload")
@@ -994,8 +1044,8 @@ class Pipeline:
             async with self.db_session_factory() as db:
                 await create_past_question(db, {
                     "character_id": character_id,
-                    "question": session.final_transcript or "",
-                    "answer": session.reply_text or "",
+                    "question": (question_text if question_text is not None else session.final_transcript) or "",
+                    "answer": (answer_text if answer_text is not None else session.reply_text) or "",
                     "audio_url": audio_url,
                     "question_audio_url": question_audio_url,
                     "source": "faq" if timings.get("faq_hit") else "llm",
@@ -1035,7 +1085,7 @@ class Pipeline:
             traceback.print_exc()
 
     async def _send_error(self, session_id: str, message: str):
-        log.fail("PIPE", f"error (session={session_id}): {message}")
+        log.fail("PIPE", f"error (sid={session_id[:8]}): {message}")
         session = self.connection_manager.get_session(session_id)
         character_id = session.character_id if session else None
         await self._send_fallback_audio(session_id, character_id)
