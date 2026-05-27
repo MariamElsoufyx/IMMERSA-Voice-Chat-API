@@ -1,4 +1,4 @@
-.PHONY: faq history server test
+.PHONY: faq history server test 
 
 faq:
 	python -m helpers.faq_manager

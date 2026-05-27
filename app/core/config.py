@@ -73,7 +73,7 @@ CONVERSATION_HISTORY_MAX_TURNS = 6  # keep last N (question, answer) pairs; olde
 #RAG (history retrieval — used on FAQ miss to ground the LLM)
 HISTORY_TOP_K = 6                  # number of history chunks to inject into the prompt
 HISTORY_SIMILARITY_THRESHOLD = 0.35 # looser than FAQ — we want context even on a partial match
-HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds — skip retrieval and answer without grounding if slow
+HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds — skip retrieval and answer without grounding if slow (in-memory search is ~1ms, so this is just a safety net)
 
 
 #verification

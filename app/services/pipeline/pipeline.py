@@ -32,7 +32,7 @@ from app.utils.log import log
 
 
 class Pipeline:
-    def __init__(self, connection_manager, audio_preprocessor, stt_service, llm_service, elevenlabs_service, db_session_factory=None, faq_memory_cache=None, openai_client=None):
+    def __init__(self, connection_manager, audio_preprocessor, stt_service, llm_service, elevenlabs_service, db_session_factory=None, faq_memory_cache=None, history_memory_cache=None, openai_client=None):
         self.connection_manager = connection_manager
         self.audio_preprocessor = audio_preprocessor
         self.stt_service = stt_service
@@ -40,6 +40,7 @@ class Pipeline:
         self.elevenlabs_service = elevenlabs_service
         self.db_session_factory = db_session_factory  # async session factory for past_questions writes
         self.faq_memory_cache = faq_memory_cache       # in-memory FAQ index (no DB hit for lookups)
+        self.history_memory_cache = history_memory_cache  # in-memory RAG index (no DB hit for retrieval)
         self.openai_client = openai_client             # OpenAI client for parallel response verification
         self.verifier = Verifier(openai_client=openai_client)  # tiered regex / models orchestrator
 
@@ -159,6 +160,19 @@ class Pipeline:
         lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         report = "\n".join(lines)
         print(report)
+
+    @staticmethod
+    def _build_rag_query(history: list, transcript: str) -> str:
+        """Build a context-aware retrieval query for follow-up questions.
+
+        A bare follow-up like "when was it?" embeds to a vector that retrieves
+        nothing relevant. Prepending the most recent user question(s) restores the
+        subject ("who built this college" + "when was it?") so vector search pulls
+        the facts the follow-up actually depends on. Only the last 2 user turns are
+        used — enough for pronoun/ellipsis resolution without diluting the query."""
+        prior_user = [m.get("content", "") for m in (history or []) if m.get("role") == "user"]
+        recent = [q for q in prior_user[-2:] if q]
+        return " ".join(recent + [transcript]).strip()
 
     @staticmethod
     def _log_history(session_id: str, history: list | None):
@@ -334,25 +348,57 @@ class Pipeline:
                         await self._send_fallback_audio(session_id, character_id)
                         continue
 
+                # Conversation memory for this connection (excludes the current turn,
+                # which we append only after the reply is finalized below). Fetched here
+                # because it also feeds the context-aware RAG query for follow-ups.
+                history = session.get_history() if session else None
+
                 # --- RAG: retrieve verified history to ground the LLM (FAQ miss path) ---
-                # Reuse the speculative embedding already computed during STT — same
-                # query embedding works for both FAQ and history search.
+                # For a FRESH question we reuse the speculative embedding already computed
+                # during STT (same vector works for FAQ + history search). For a FOLLOW-UP
+                # (history exists) the bare transcript ("when was it?") retrieves nothing
+                # useful, so we embed a context-aware query that carries the prior subject.
+                # Embedding and DB query are timed + bounded SEPARATELY so the logs show
+                # exactly which phase is slow, and neither can stall the turn past its budget.
                 retrieved_chunks = []
-                if self.db_session_factory:
+                if self.history_memory_cache or self.db_session_factory:
                     t_rag = time.perf_counter()
+                    embed_ms = db_ms = None
                     try:
-                        embedding = await self._resolve_embedding(transcript, spec_embed_task)
+                        t_emb = time.perf_counter()
+                        if history:
+                            rag_query = self._build_rag_query(history, transcript)
+                            log.detail(f"RAG context-aware query: {rag_query!r}")
+                            embedding = await asyncio.wait_for(
+                                asyncio.to_thread(generate_query_embedding, rag_query),
+                                timeout=config.HISTORY_LOOKUP_TIMEOUT,
+                            )
+                        else:
+                            embedding = await asyncio.wait_for(
+                                self._resolve_embedding(transcript, spec_embed_task),
+                                timeout=config.HISTORY_LOOKUP_TIMEOUT,
+                            )
+                        embed_ms = (time.perf_counter() - t_emb) * 1000
+
+                        t_db = time.perf_counter()
                         retrieved_chunks = await asyncio.wait_for(
                             self._retrieve_history(embedding, character_id),
                             timeout=config.HISTORY_LOOKUP_TIMEOUT,
                         )
+                        db_ms = (time.perf_counter() - t_db) * 1000
                     except asyncio.TimeoutError:
-                        log.warn("RAG", f"history retrieval timed out after {config.HISTORY_LOOKUP_TIMEOUT}s — answering ungrounded")
+                        phase = "embedding" if embed_ms is None else "db-query"
+                        log.warn("RAG", f"history retrieval timed out in {phase} phase "
+                                         f"(embed={embed_ms and f'{embed_ms:.0f}ms' or 'n/a'}, "
+                                         f"db={db_ms and f'{db_ms:.0f}ms' or 'timed out'}) — answering ungrounded")
                     except Exception as e:
                         log.warn("RAG", f"history retrieval failed (non-fatal): {e}")
                     self._t(session_id)["rag"] = time.perf_counter() - t_rag
                     self._t(session_id)["rag_chunks"] = len(retrieved_chunks)
-                    log.ok("RAG", f"retrieved {len(retrieved_chunks)} history chunk(s) ({self._t(session_id)['rag']*1000:.0f}ms)")
+                    log.ok("RAG", f"retrieved {len(retrieved_chunks)} history chunk(s) "
+                                  f"({self._t(session_id)['rag']*1000:.0f}ms total — "
+                                  f"embed={embed_ms and f'{embed_ms:.0f}ms' or 'n/a'}, "
+                                  f"db={db_ms and f'{db_ms:.0f}ms' or 'n/a'})")
 
                 prompt_key = config.get_prompt_key_by_character_id(character_id) if character_id else "mohandeskhana-student"
                 user_prompt, system_prompt = build_narrator_prompts(
@@ -361,9 +407,6 @@ class Pipeline:
                     prompt_key=prompt_key,
                     retrieved_chunks=retrieved_chunks,
                 )
-                # Conversation memory for this connection (excludes the current turn,
-                # which we append only after the reply is finalized below).
-                history = session.get_history() if session else None
                 self._log_history(session_id, history)
                 log.step("LLM", f"generating reply (history_turns={len(history) // 2 if history else 0})")
                 reply_raw = await asyncio.to_thread(self.llm_service.generate_reply, user_prompt, system_prompt, history)
@@ -771,15 +814,26 @@ class Pipeline:
         Awaiting an already-finished task just returns its stored result, so this is
         safe even though _lookup_faq awaited the same task earlier."""
         if spec_embed_task is not None:
+            # If the speculative task already finished, this returns instantly. If it's
+            # logged as "pending", the embedding model is likely still loading (cold) or
+            # starved in the thread pool — that's the smoking gun for slow RAG.
+            log.detail(f"resolve embedding — spec task {'done' if spec_embed_task.done() else 'PENDING (still embedding)'}")
             try:
                 return await spec_embed_task
             except Exception:
                 pass
+        log.detail("resolve embedding — no spec task, computing fresh")
         return await asyncio.to_thread(generate_query_embedding, transcript)
 
     async def _retrieve_history(self, embedding: list[float], character_id: str) -> list:
-        """Vector-search the college-history KB for grounding chunks (scoped to this
-        character + global). Returns [] on any failure — RAG is best-effort."""
+        """Retrieve grounding chunks (scoped to this character + global).
+
+        Prefers the in-memory index (numpy, <1ms, no DB) — same approach as FAQ.
+        Falls back to a DB pgvector query only if the cache isn't loaded.
+        """
+        if self.history_memory_cache and self.history_memory_cache.is_loaded:
+            # Pure CPU (~1ms) — fine to run on the event loop, no thread/DB needed.
+            return self.history_memory_cache.search(embedding, character_id)
         async with self.db_session_factory() as db:
             return await search_history_chunks(db, embedding, character_id)
 

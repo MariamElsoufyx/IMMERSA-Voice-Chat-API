@@ -18,6 +18,7 @@ from app.characters import characters_info
 from app.db.database import get_engine, get_session_factory
 from app.services.embedding_service import generate_embedding
 from app.services.faq_memory_cache import FAQMemoryCache
+from app.services.history_memory_cache import HistoryMemoryCache
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,6 +58,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️  [FAQ CACHE] Failed to load (non-fatal — will fall back to DB search): {e}")
 
+    # Load all history chunks into memory — RAG retrieval becomes a numpy search (< 1ms),
+    # keeping the remote DB out of the request hot path entirely.
+    history_memory_cache = HistoryMemoryCache()
+    try:
+        async with db_session_factory() as db:
+            await history_memory_cache.load(db)
+    except Exception as e:
+        print(f"⚠️  [HISTORY CACHE] Failed to load (non-fatal — will fall back to DB search): {e}")
+
     connection_manager = ConnectionManager()
     pipeline = Pipeline(
         connection_manager=connection_manager,
@@ -69,6 +79,7 @@ async def lifespan(app: FastAPI):
         ),
         db_session_factory=db_session_factory,
         faq_memory_cache=faq_memory_cache,
+        history_memory_cache=history_memory_cache,
         openai_client=models["openai_client"],
     )
 

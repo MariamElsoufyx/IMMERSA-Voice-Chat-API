@@ -1,47 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep *)",
-      "Bash(grep -E \"\\\\.py$|^d\")",
-      "Bash(alembic current *)",
-      "Bash(del \"D:\\\\Projects\\\\IMMERSA-Voice-Chat-API\\\\app\\\\utils\\\\response_logger.py\")",
-      "PowerShell(& \".\\\\IMMERSA\\\\Scripts\\\\python.exe\" -m py_compile app/utils/anachronism_filter.py app/utils/safety_classifier.py app/utils/relevance_check.py app/services/pipeline/pipeline.py app/characters/characters_info.py app/core/config.py)",
-      "PowerShell(if \\($?\\) { \"OK\" })",
-      "PowerShell($env:PYTHONIOENCODING='utf-8'; & \".\\\\IMMERSA\\\\Scripts\\\\python.exe\" -c \"from app.services.verification import Verifier, CheckResult, AggregateResult; from app.services.verification.regex_checks import check_profanity, check_anachronism; from app.services.verification.cosine_checks import check_relevance; from app.services.verification.model_checks import check_moderation, check_llm_judge; v = Verifier\\(openai_client=None\\); r1 = v.regex_check_question\\('hello there'\\); r2 = v.regex_check_answer\\('I love my smartphone in 2024', 's1'\\); r3 = v.regex_check_answer\\('A perfectly normal answer.', 's1'\\); print\\('Q regex passed:', r1.passed\\); print\\('A regex \\(bad\\) passed:', r2.passed, '| reasons:', r2.all_reasons\\(\\)[:3]\\); print\\('A regex \\(good\\) passed:', r3.passed\\)\")",
-      "Bash(python -m py_compile helpers/faq_manager.py)",
-      "Bash(python -c \"import os; from dotenv import load_dotenv; load_dotenv\\(\\); u=os.getenv\\('SUPABASE_URL'\\); k=os.getenv\\('SUPABASE_SERVICE_KEY'\\); print\\('URL:', repr\\(u\\)\\); print\\('KEY set:', bool\\(k\\)\\)\")",
-      "Bash(python -c \"import socket; print\\(socket.gethostbyname\\('erbhptjoxjfsaluylbeq.supabase.co'\\)\\)\")",
-      "Bash(python -c \"import socket; print\\('google:', socket.gethostbyname\\('google.com'\\)\\)\")",
-      "Bash(python -c 'import socket *)",
-      "Bash(ipconfig /flushdns)",
-      "Bash(nslookup erbhptjoxjfsaluylbeq.supabase.co 8.8.8.8)",
-      "PowerShell(try { Resolve-DnsName erbhptjoxjfsaluylbeq.supabase.co -Server 8.8.8.8 -ErrorAction Stop } catch { Write-Output \"NOT RESOLVED via 8.8.8.8: $\\($_.Exception.Message\\)\" })",
-      "Bash(python -m alembic heads)",
-      "Bash(python -c \"from app.db.models import HistoryChunk; from app.db.repositories import history_repository; print\\('imports OK:', HistoryChunk.__tablename__\\)\")",
-      "Bash(python -m alembic upgrade head)",
-      "Bash(python -c ' *)",
-      "Bash(python -m helpers.index_history)",
-      "Bash(IMMERSA/Scripts/python.exe -c \"import sentence_transformers; print\\('ok'\\)\")",
-      "Bash(IMMERSA/Scripts/python.exe -m helpers.index_history)",
-      "Bash(IMMERSA/Scripts/python.exe -m helpers.index_history --list)",
-      "Bash(IMMERSA/Scripts/python.exe -c ' *)",
-      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -c ' *)",
-      "Bash(python -m alembic current)",
-      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -m helpers.index_history)",
-      "Bash(PYTHONIOENCODING=utf-8 IMMERSA/Scripts/python.exe -m helpers.index_history --list)",
-      "Bash(findstr /I \"faq history manager\")",
-      "Bash(where python *)",
-      "Bash(python -c \"import sys; print\\(sys.prefix\\)\")",
-      "Bash(where make *)",
-      "Bash(mingw32-make -n faq)",
-      "Bash(mingw32-make -n history)",
-      "Bash(scoop install *)",
-      "Bash(make --version)",
-      "Bash(make -n faq)",
-      "Bash(make -n history)",
-      "PowerShell(python -m py_compile helpers/test_script.py)",
-      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['app/services/streaming/stream_session.py','app/services/streaming/audio_buffer.py','app/services/streaming/connection_manager.py','app/services/pipeline/pipeline.py','app/services/verification/model_checks.py']]; print\\('OK'\\)\")",
-      "Bash(python -c \"from app.characters import prompts; print\\('OK', list\\(prompts.system_prompts\\), list\\(prompts.user_prompts\\)\\)\")"
+      "Bash(python -c ' *)"
     ]
   }
 }
