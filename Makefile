@@ -1,4 +1,4 @@
-.PHONY: faq history server test 
+.PHONY: faq history server test audio
 
 faq:
 	python -m helpers.faq_manager
@@ -11,3 +11,5 @@ server:
 
 test:
 	python -m helpers.test_script
+audio: 
+	python -m helpers.generate_audio_from_text
