@@ -103,7 +103,7 @@ class FAQMemoryCache:
         it here. All stored embeddings are pre-normalised at load time.
         """
         if threshold is None:
-            threshold = config.SIMILARITY_THRESHOLD
+            threshold = config.FAQ_SIMILARITY_THRESHOLD
 
         cid = (character_id or "").lower()
         entries = self._data.get(cid, [])

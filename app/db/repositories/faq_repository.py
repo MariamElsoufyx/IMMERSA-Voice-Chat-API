@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from pgvector.sqlalchemy import Vector
-from app.core.config import SIMILARITY_THRESHOLD
+from app.core.config import FAQ_SIMILARITY_THRESHOLD
 from app.db.models import FAQ
 
 
@@ -61,7 +61,7 @@ async def search_similar_faq(
     db: AsyncSession,
     embedding: list[float],
     character_id: str,
-    threshold: float = SIMILARITY_THRESHOLD,
+    threshold: float = FAQ_SIMILARITY_THRESHOLD,
     limit: int = 1,
 ) -> FAQ | None:
     """Find the most similar FAQ for a given character using cosine similarity.
