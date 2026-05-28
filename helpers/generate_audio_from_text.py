@@ -26,7 +26,7 @@ load_dotenv()
 
 # ── Same parameters as app/core/config.py ─────────────────────────────────────
 ELEVENLABS_API_KEY   = os.getenv("ELEVENLABS_API_KEY")
-VOICE_ID             = os.getenv("AHMAD_VOICE_ID")
+VOICE_ID             =os.getenv("ROGER_VOICE_ID") 
 MODEL_ID             = "eleven_v3"
 OUTPUT_FORMAT        = "mp3_44100_128"   # available on all tiers
 SAMPLE_RATE          = 44100
