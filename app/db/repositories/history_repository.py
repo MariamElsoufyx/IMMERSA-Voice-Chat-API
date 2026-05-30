@@ -83,7 +83,7 @@ async def search_history_chunks(
         SELECT id, content, character_id, source_doc, chunk_index, language, tag,
                created_at, updated_at,
                1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
-        FROM college_history_chunks
+        FROM "RAG_data"
         WHERE embedding IS NOT NULL
           AND (character_id = :character_id OR character_id IS NULL)
         ORDER BY embedding <=> CAST(:embedding AS vector)

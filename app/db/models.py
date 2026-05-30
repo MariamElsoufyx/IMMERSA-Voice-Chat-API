@@ -44,7 +44,7 @@ class HistoryChunk(Base):
     source material. On an FAQ miss the top-K most similar chunks are retrieved
     and injected into the LLM prompt as grounding context.
     """
-    __tablename__ = "college_history_chunks"
+    __tablename__ = "RAG_data"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

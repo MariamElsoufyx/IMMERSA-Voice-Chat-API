@@ -1,5 +1,5 @@
 """
-Interactive manager for the college-history RAG store (college_history_chunks).
+Interactive manager for the college-history RAG store (RAG_data).
 
 Add, index, list, view, update, delete history chunks — and test retrieval to
 see what a question would actually pull back (with similarity scores) so you can

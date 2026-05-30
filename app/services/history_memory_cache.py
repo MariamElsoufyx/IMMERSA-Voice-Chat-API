@@ -44,7 +44,7 @@ class HistoryMemoryCache:
         result = await db.execute(text("""
             SELECT id, content, character_id, source_doc, chunk_index,
                    language, tag, embedding
-            FROM college_history_chunks
+            FROM "RAG_data"
             WHERE embedding IS NOT NULL
         """))
         rows = result.mappings().all()

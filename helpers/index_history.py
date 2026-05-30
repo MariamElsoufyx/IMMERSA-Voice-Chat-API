@@ -1,5 +1,5 @@
 """
-Indexing helpers for the college-history RAG store (college_history_chunks).
+Indexing helpers for the college-history RAG store (RAG_data).
 
 This is a library module — it has no CLI entry point. Use it through the
 interactive manager:
