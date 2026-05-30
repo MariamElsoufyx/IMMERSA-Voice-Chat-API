@@ -23,3 +23,9 @@ asyncpg
 alembic
 pgvector
 httpx
+
+# Local (from-scratch) services — used when USE_LOCAL_SERVICES = True
+piper-tts            # local TTS (replaces ElevenLabs)
+llama-cpp-python     # local LLM in-process backend (Ollama HTTP path needs no extra dep)
+transformers         # local toxic-bert moderation (replaces OpenAI Moderation API)
+torch                # backend for transformers pipeline
