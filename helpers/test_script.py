@@ -14,8 +14,8 @@ import soundfile as sf
 import websockets
 
 
-#WS_URL = "wss://immersa-api-voice-chat.run.place/ws/voice-chat"
-WS_URL = "ws://127.0.0.1:8000/ws/voice-chat"
+WS_URL = "wss://immersa-api-voice-chat.run.place/ws/voice-chat"
+#WS_URL = "ws://127.0.0.1:8000/ws/voice-chat"
 
 TEST_FILES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_files")
 
