@@ -7,6 +7,7 @@ import re
 import time
 
 import app.core.config as config
+from app.characters import characters_info
 from app.services.verification.base import CheckResult
 from app.utils.log import log
 
@@ -139,7 +140,16 @@ def check_anachronism(text: str, character_id: str | None) -> CheckResult:
     t0 = time.perf_counter()
     reasons: list[str] = []
 
+    # Per-character cutoff: each character operates in their own year; fall back
+    # to the global default when the character has no year on file.
     cutoff = config.ANACHRONISM_DEFAULT_LATEST_YEAR
+    if character_id:
+        year = characters_info.operation_year.get(character_id)
+        if year:
+            try:
+                cutoff = int(year)
+            except ValueError:
+                pass
     future_years = sorted({m.group() for m in _YEAR_PATTERN.finditer(text or "") if int(m.group()) > cutoff})
     for y in future_years:
         reasons.append(f"future year: {y} (cutoff {cutoff})")

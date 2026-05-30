@@ -81,8 +81,10 @@ MODERATION_ENABLED = True              # OpenAI Moderation API on questions and 
 ANACHRONISM_ENABLED = True             # regex check for future years / modern terms / URLs / emails
 
 # Anachronism cutoff — any 4-digit year in the LLM answer that exceeds this
-# year is flagged.
-ANACHRONISM_DEFAULT_LATEST_YEAR = 1918
+# year is flagged. Each character is actually checked against their OWN
+# operation_year (see regex_checks.check_anachronism); this value is only the
+# fallback used when a character has no year on file.
+ANACHRONISM_DEFAULT_LATEST_YEAR = 1960
 
 
 #functions 

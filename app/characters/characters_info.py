@@ -5,7 +5,7 @@ load_dotenv()
 #-----  Basic info -----#
 first_name = {
     "s1":"Morad",
-    "s2":"Kareem",
+    "s2":"Hassan",
     "p1" :"Amin"
 }
 
@@ -13,7 +13,7 @@ first_name = {
 
 middle_name = {
     "s1":"Ali",
-    "s2":"Hassan",
+    "s2":"Kareem",
     "p1" :"Saleh"}
 
 last_name = {
@@ -39,6 +39,14 @@ gender = {
     "s1":"male",
     "s2":"male",
     "p1" :"male"
+    }
+
+# Year each character operates in. Drives the era references woven into the
+# prompts and the per-character anachronism cutoff (see regex_checks).
+operation_year = {
+    "s1":"1918",   # Morad
+    "s2":"1960",   # Hassan Kareem
+    "p1":"1918"    # Amin
     }
 
 financial_status = {
@@ -96,7 +104,7 @@ hobbies = {
 # ----- Academic Profile -----#
 graduation_year = {
     "s1":"1921",
-    "s2":"1922",
+    "s2":"1963",
     "p1" :"1891"
     }
 
