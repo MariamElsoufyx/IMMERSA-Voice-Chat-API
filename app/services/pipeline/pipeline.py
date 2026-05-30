@@ -435,6 +435,11 @@ class Pipeline:
                     self._t(session_id)["content_filter_pass"] = False
                     self._t(session_id)["content_filter_flagged"] = ", ".join(profanity_result.details.get("flagged", []))
                     log.fail("PIPE", "answer blocked by REGEX profanity — playing fallback audio")
+                    # Persist the flagged answer to the DB log (but NOT to conversation
+                    # memory — no append_turn). The fallback audio's done-sentinel triggers
+                    # _save_past_question, which reads session.reply_text.
+                    if session:
+                        session.set_reply_text(parsed)
                     await self._send_fallback_audio(session_id, character_id)
                     continue
                 self._t(session_id)["content_filter_pass"] = True
@@ -444,6 +449,11 @@ class Pipeline:
                     if not anachronism_result.passed:
                         self._t(session_id)["anachronism_reasons"] = "; ".join(anachronism_result.reasons)
                         log.fail("PIPE", "answer blocked by REGEX anachronism — playing verify audio")
+                        # Persist the flagged answer to the DB log (but NOT to conversation
+                        # memory — no append_turn). The verify audio's done-sentinel triggers
+                        # _save_past_question, which reads session.reply_text.
+                        if session:
+                            session.set_reply_text(parsed)
                         await self._send_verifier_fallback_audio(session_id, character_id)
                         continue
 
