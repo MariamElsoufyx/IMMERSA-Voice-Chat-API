@@ -24,8 +24,8 @@ last_name = {
 
 voices = {
     "s1": os.getenv("AHMAD_VOICE_ID"),
-    "s2": os.getenv("ACHRAF_VOICE_ID"),
-    "p1" : os.getenv("ROGER_VOICE_ID")
+    "s2": os.getenv("KARIM_VOICE_ID"),
+    "p1" : os.getenv("HANAFI_VOICE_ID")
 
 }
 
@@ -39,6 +39,12 @@ gender = {
     "s1":"male",
     "s2":"male",
     "p1" :"male"
+    }
+
+age = {
+    "s1":"19",
+    "s2":"20",
+    "p1" :"49"
     }
 
 # Year each character operates in. Drives the era references woven into the

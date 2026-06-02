@@ -132,7 +132,7 @@
 
 <header>
   <h1>IMMERSA Voice Chat API</h1>
-  <p>Real-time voice conversation — Whisper STT · GPT LLM · ElevenLabs TTS</p>
+  <p>Real-time voice conversation — Whisper STT · Groq LLaMA LLM · ElevenLabs TTS</p>
   <span class="badge">wss://immersa-api-voice-chat.run.place/ws/voice-chat</span>
   <span class="badge" style="margin-left:8px">AsyncAPI 2.6</span>
 </header>
@@ -153,7 +153,6 @@
     <div class="section-title" style="margin-top:16px">Server → Client</div>
     <a href="#" data-section="msg-connection_established">connection_established</a>
     <a href="#" data-section="msg-ack">ack</a>
-    <a href="#" data-section="msg-partial_transcript">partial_transcript</a>
     <a href="#" data-section="msg-final_transcript">final_transcript</a>
     <a href="#" data-section="msg-reply_text_done">reply_text_done</a>
     <a href="#" data-section="msg-tts_audio_chunk">tts_audio_chunk</a>
@@ -177,14 +176,14 @@
       <h3>2. Start session</h3>
       <p>Send <strong>start_session</strong> with a <code>character_id</code> and audio parameters. The server acknowledges and the session enters <em>LISTENING</em> state.</p>
       <h3>3. Stream audio</h3>
-      <p>Encode each audio chunk as base64 and send <strong>audio_chunk</strong> messages. The server acknowledges each one and — every 5 chunks — emits a <strong>partial_transcript</strong> so you can show live captions.</p>
+      <p>Encode each audio chunk as base64 and send <strong>audio_chunk</strong> messages. The server acknowledges each one with an <strong>ack</strong> and runs rolling STT every 5 chunks internally to accumulate the transcript (no intermediate transcript is sent).</p>
       <h3>4. End of utterance</h3>
-      <p>When the user stops speaking, send <strong>end_of_utterance</strong>. The server finalises transcription, generates the character reply with GPT, and streams audio back from ElevenLabs.</p>
+      <p>When the user stops speaking, send <strong>end_of_utterance</strong>. The server finalises transcription, generates the character reply (a matching FAQ answer, or a Groq LLaMA reply grounded in retrieved history), and streams audio back from ElevenLabs.</p>
       <h3>5. Receive reply</h3>
       <p>You get: <strong>final_transcript</strong> → <strong>reply_text_done</strong> → multiple <strong>tts_audio_chunk</strong> → <strong>tts_done</strong>. After <em>tts_done</em> the session is back in <em>LISTENING</em> state, ready for the next turn.</p>
       <h3>6. Close</h3>
       <p>Send <strong>close_session</strong> to end gracefully.</p>
-      <div class="note">All audio is WAV when going client→server and MP3 44 100 Hz 128 kbps when going server→client.</div>
+      <div class="note">Audio going client→server is WAV (or raw PCM16). Audio going server→client is WAV (PCM_16, 44 100 Hz, mono) — one self-contained WAV file per sentence.</div>
     </section>
 
     <!-- FLOW -->
@@ -204,7 +203,7 @@
 <span class="flow-label">  |    ...                                        |</span>
 <span class="flow-client">  |--- audio_chunk (chunk_index: 4) ------------></span>
 <span class="flow-server">  |<-- ack (event: audio_chunk) ----------------- |</span>
-<span class="flow-server">  |<-- partial_transcript ----------------------- |  ← every 5 chunks</span>
+<span class="flow-label">  |    (rolling STT runs every 5 chunks server-side — no event sent)</span>
 <span class="flow-label">  |    ...                                        |</span>
 <span class="flow-client">  |--- end_of_utterance ------------------------></span>
 <span class="flow-server">  |<-- ack (event: end_of_utterance) ----------- |</span>
@@ -243,7 +242,7 @@
           <tr><td class="field-name">CONNECTED</td><td>WebSocket open, waiting for start_session.</td></tr>
           <tr><td class="field-name">LISTENING</td><td>Session active, ready to receive audio_chunk messages.</td></tr>
           <tr><td class="field-name">FINALIZING_TRANSCRIPT</td><td>end_of_utterance received; running final Whisper STT.</td></tr>
-          <tr><td class="field-name">GENERATING_REPLY</td><td>STT done; calling GPT to generate character reply.</td></tr>
+          <tr><td class="field-name">GENERATING_REPLY</td><td>STT done; finding a FAQ match or generating the character reply with the LLM.</td></tr>
           <tr><td class="field-name">STREAMING_TTS</td><td>LLM done; streaming ElevenLabs audio back to client.</td></tr>
           <tr><td class="field-name">CLOSED</td><td>Session terminated.</td></tr>
         </tbody>
@@ -260,7 +259,7 @@
   "type": "start_session",
   "character_id": "s1",
   "sample_rate": 16000,
-  "audio_format": "wav_base64_chunks"
+  "audio_format": "wav"
 }</pre>
       <h3>Fields</h3>
       <table>
@@ -269,7 +268,7 @@
           <tr><td class="field-name">type</td><td class="field-type">string</td><td class="field-req">required</td><td>Always <code>"start_session"</code></td></tr>
           <tr><td class="field-name">character_id</td><td class="field-type">string</td><td class="field-req">required</td><td><code>"s1"</code>, <code>"s2"</code>, or <code>"p1"</code> — see Characters page</td></tr>
           <tr><td class="field-name">sample_rate</td><td class="field-type">integer</td><td class="field-opt">optional</td><td>Sample rate of audio you will send. Default: <code>16000</code> Hz</td></tr>
-          <tr><td class="field-name">audio_format</td><td class="field-type">string</td><td class="field-opt">optional</td><td>Encoding format. Default: <code>"wav_base64_chunks"</code></td></tr>
+          <tr><td class="field-name">audio_format</td><td class="field-type">string</td><td class="field-opt">optional</td><td><code>"wav"</code> (default) or <code>"pcm16_base64_chunks"</code> (raw PCM16-LE)</td></tr>
         </tbody>
       </table>
       <div class="note">The server responds with <strong>ack</strong> (event: start_session) that includes your session_id and current state.</div>
@@ -293,7 +292,7 @@
           <tr><td class="field-name">audio</td><td class="field-type">string (base64)</td><td class="field-req">required</td><td>Base64-encoded WAV audio bytes.</td></tr>
         </tbody>
       </table>
-      <div class="warn">The server performs rolling STT after every 5 chunks and emits a <strong>partial_transcript</strong>. Keep chunks small (e.g. 0.5–1 s of audio) for best latency.</div>
+      <div class="warn">The server performs rolling STT after every 5 chunks to accumulate the transcript internally — no intermediate transcript event is sent. Keep chunks small (e.g. 0.5–1 s of audio) for best latency.</div>
     </section>
 
     <section id="msg-end_of_utterance">
@@ -348,7 +347,7 @@
   "session_id": "3f4a1b2c-...",
   "character_id": "s1",
   "sample_rate": 16000,
-  "audio_format": "wav_base64_chunks",
+  "audio_format": "wav",
   "state": "LISTENING"
 }</pre>
 
@@ -376,28 +375,6 @@
 }</pre>
     </section>
 
-    <section id="msg-partial_transcript">
-      <h2><span class="tag server">SERVER → CLIENT</span> <code>partial_transcript</code></h2>
-      <p>Intermediate STT result emitted every 5 audio chunks while the user is still speaking. Use for live captions.</p>
-      <h3>JSON payload</h3>
-      <pre>{
-  "type": "partial_transcript",
-  "text": "What is hydraulic pressure",
-  "chunk_index": 4,
-  "window_size": 5
-}</pre>
-      <h3>Fields</h3>
-      <table>
-        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="field-name">type</td><td class="field-type">string</td><td>Always <code>"partial_transcript"</code></td></tr>
-          <tr><td class="field-name">text</td><td class="field-type">string</td><td>Partial transcription of the rolling audio window.</td></tr>
-          <tr><td class="field-name">chunk_index</td><td class="field-type">integer</td><td>Index of the chunk that triggered this event.</td></tr>
-          <tr><td class="field-name">window_size</td><td class="field-type">integer (max 5)</td><td>Number of chunks in the rolling window.</td></tr>
-        </tbody>
-      </table>
-    </section>
-
     <section id="msg-final_transcript">
       <h2><span class="tag server">SERVER → CLIENT</span> <code>final_transcript</code></h2>
       <p>Complete transcription of the user's full utterance, produced after <code>end_of_utterance</code>.</p>
@@ -418,12 +395,13 @@
 
     <section id="msg-reply_text_done">
       <h2><span class="tag server">SERVER → CLIENT</span> <code>reply_text_done</code></h2>
-      <p>The character's complete text reply from GPT. Emitted <em>before</em> TTS audio starts — show a text bubble immediately without waiting for audio.</p>
+      <p>The character's complete text reply (from a FAQ match or the LLM). Emitted <em>before</em> TTS audio starts — show a text bubble immediately without waiting for audio.</p>
       <h3>JSON payload</h3>
       <pre>{
   "type": "reply_text_done",
   "text": "Well, hydraulic pressure is the force exerted by a confined fluid...",
-  "length": 147
+  "length": 147,
+  "emotion": "neutral"
 }</pre>
       <h3>Fields</h3>
       <table>
@@ -432,18 +410,19 @@
           <tr><td class="field-name">type</td><td class="field-type">string</td><td>Always <code>"reply_text_done"</code></td></tr>
           <tr><td class="field-name">text</td><td class="field-type">string</td><td>The character's full reply text.</td></tr>
           <tr><td class="field-name">length</td><td class="field-type">integer</td><td>Character count of the reply.</td></tr>
+          <tr><td class="field-name">emotion</td><td class="field-type">string | null</td><td>One of <code>happy</code>, <code>sad</code>, <code>angry</code>, <code>disgust</code>, <code>surprise</code>, <code>neutral</code> — or <code>null</code>.</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="msg-tts_audio_chunk">
       <h2><span class="tag server">SERVER → CLIENT</span> <code>tts_audio_chunk</code></h2>
-      <p>One chunk of the character's voice audio, base64-encoded MP3. Buffer and play sequentially.</p>
+      <p>One self-contained WAV file (base64-encoded), one per sentence of the reply. Buffer and play sequentially.</p>
       <h3>JSON payload</h3>
       <pre>{
   "type": "tts_audio_chunk",
   "chunk_index": 0,
-  "audio": "&lt;base64-encoded MP3 data&gt;"
+  "audio": "&lt;base64-encoded WAV data&gt;"
 }</pre>
       <h3>Fields</h3>
       <table>
@@ -451,10 +430,10 @@
         <tbody>
           <tr><td class="field-name">type</td><td class="field-type">string</td><td>Always <code>"tts_audio_chunk"</code></td></tr>
           <tr><td class="field-name">chunk_index</td><td class="field-type">integer ≥ 0</td><td>Sequential index; play chunks in this order.</td></tr>
-          <tr><td class="field-name">audio</td><td class="field-type">string (base64)</td><td>Base64-encoded MP3 bytes. Format: <strong>MP3 · 44 100 Hz · 128 kbps</strong>.</td></tr>
+          <tr><td class="field-name">audio</td><td class="field-type">string (base64)</td><td>Base64-encoded WAV bytes. Format: <strong>WAV · PCM_16 · 44 100 Hz · mono</strong>. ElevenLabs returns MP3 internally; the server decodes, silence-trims, and re-encodes each sentence as a complete WAV before sending.</td></tr>
         </tbody>
       </table>
-      <div class="note">Decode with <code>atob()</code> (browser) or <code>Buffer.from(audio, 'base64')</code> (Node). Concatenate all chunks into one MP3 blob or pipe into a streaming audio element.</div>
+      <div class="note">Decode with <code>atob()</code> (browser) or <code>Buffer.from(audio, 'base64')</code> (Node). Each chunk is a standalone WAV — play them in order (e.g. queue one <code>Audio</code> element per chunk, or decode each via the Web Audio API).</div>
     </section>
 
     <section id="msg-tts_done">
@@ -492,13 +471,14 @@
       <h2>Characters</h2>
       <p>Pass <code>character_id</code> in <em>start_session</em> to select which character you are speaking with.</p>
       <table>
-        <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Department</th></tr></thead>
+        <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Department</th><th>Era</th></tr></thead>
         <tbody>
-          <tr><td class="field-name">s1</td><td>Kareem Ali El-Attar</td><td>Student</td><td>Irrigation Engineering</td></tr>
-          <tr><td class="field-name">s2</td><td>Morad Hassan El-Shazly</td><td>Student</td><td>Mechanical Engineering</td></tr>
-          <tr><td class="field-name">p1</td><td>Amin Saleh Shawky</td><td>Professor</td><td>Mechanical Engineering</td></tr>
+          <tr><td class="field-name">s1</td><td>Morad Ali El-Attar</td><td>Student</td><td>Irrigation Engineering</td><td>1918</td></tr>
+          <tr><td class="field-name">s2</td><td>Hassan Kareem Shawky</td><td>Student</td><td>Mechanical Engineering</td><td>1960</td></tr>
+          <tr><td class="field-name">p1</td><td>Amin Saleh El-Shazly</td><td>Professor</td><td>Mechanical Engineering</td><td>1918</td></tr>
         </tbody>
       </table>
+      <p>Each character is anchored to a specific year and answers strictly within that era — no modern words, concepts, or references.</p>
     </section>
 
     <!-- AUDIO FORMAT -->
@@ -507,8 +487,8 @@
       <table>
         <thead><tr><th>Direction</th><th>Format</th><th>Sample rate</th><th>Encoding</th></tr></thead>
         <tbody>
-          <tr><td>Client → Server</td><td>WAV</td><td>16 000 Hz (default)</td><td>Base64 string in JSON</td></tr>
-          <tr><td>Server → Client</td><td>MP3</td><td>44 100 Hz</td><td>Base64 string in JSON (128 kbps)</td></tr>
+          <tr><td>Client → Server</td><td>WAV or raw PCM16-LE</td><td>16 000 Hz (default)</td><td>Base64 string in JSON</td></tr>
+          <tr><td>Server → Client</td><td>WAV (PCM_16, mono)</td><td>44 100 Hz</td><td>Base64 string in JSON — one WAV per sentence</td></tr>
         </tbody>
       </table>
       <h3>Encoding audio in the browser</h3>
@@ -524,21 +504,27 @@ reader.onload = () => {
 };
 reader.readAsDataURL(audioBlob);</pre>
       <h3>Decoding TTS audio in the browser</h3>
-      <pre>// Collect chunks, then play:
-const chunks = [];
+      <pre>// Each tts_audio_chunk is a complete WAV file — queue and play in order:
+const queue = [];
+let playing = false;
+
+function playNext() {
+  if (playing || queue.length === 0) return;
+  playing = true;
+  const audio = new Audio(queue.shift());
+  audio.onended = () => { playing = false; playNext(); };
+  audio.play();
+}
+
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
   if (msg.type === 'tts_audio_chunk') {
-    const binary = atob(msg.audio);
-    const bytes  = Uint8Array.from(binary, c => c.charCodeAt(0));
-    chunks.push(bytes.buffer);
+    const bytes = Uint8Array.from(atob(msg.audio), c => c.charCodeAt(0));
+    const blob  = new Blob([bytes], { type: 'audio/wav' });
+    queue.push(URL.createObjectURL(blob));
+    playNext();
   }
-  if (msg.type === 'tts_done') {
-    const blob = new Blob(chunks, { type: 'audio/mpeg' });
-    const url  = URL.createObjectURL(blob);
-    new Audio(url).play();
-    chunks.length = 0;
-  }
+  // msg.type === 'tts_done' → all chunks sent; session is back in LISTENING.
 };</pre>
     </section>
 

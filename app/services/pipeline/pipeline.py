@@ -434,13 +434,15 @@ class Pipeline:
                 if profanity_result and not profanity_result.passed:
                     self._t(session_id)["content_filter_pass"] = False
                     self._t(session_id)["content_filter_flagged"] = ", ".join(profanity_result.details.get("flagged", []))
-                    log.fail("PIPE", "answer blocked by REGEX profanity — playing fallback audio")
-                    # Persist the flagged answer to the DB log (but NOT to conversation
-                    # memory — no append_turn). The fallback audio's done-sentinel triggers
-                    # _save_past_question, which reads session.reply_text.
+                    log.fail("PIPE", "answer blocked by REGEX profanity — regenerating via verifier LLM")
+                    # Log the flagged answer (DB `answer` column); the verifier-regenerated
+                    # reply, if any, is logged separately as verifier_corrected_answer.
                     if session:
                         session.set_reply_text(parsed)
-                    await self._send_fallback_audio(session_id, character_id)
+                    asyncio.create_task(self._regenerate_flagged_answer(
+                        session_id, transcript, parsed["answer"], character_id, emotion,
+                        reason="profanity", use_verify_audio=False,
+                    ))
                     continue
                 self._t(session_id)["content_filter_pass"] = True
 
@@ -448,13 +450,15 @@ class Pipeline:
                     self._t(session_id)["anachronism_pass"] = anachronism_result.passed
                     if not anachronism_result.passed:
                         self._t(session_id)["anachronism_reasons"] = "; ".join(anachronism_result.reasons)
-                        log.fail("PIPE", "answer blocked by REGEX anachronism — playing verify audio")
-                        # Persist the flagged answer to the DB log (but NOT to conversation
-                        # memory — no append_turn). The verify audio's done-sentinel triggers
-                        # _save_past_question, which reads session.reply_text.
+                        log.fail("PIPE", "answer blocked by REGEX anachronism — regenerating via verifier LLM")
+                        # Log the flagged answer (DB `answer` column); the verifier-regenerated
+                        # reply, if any, is logged separately as verifier_corrected_answer.
                         if session:
                             session.set_reply_text(parsed)
-                        await self._send_verifier_fallback_audio(session_id, character_id)
+                        asyncio.create_task(self._regenerate_flagged_answer(
+                            session_id, transcript, parsed["answer"], character_id, emotion,
+                            reason="anachronism", use_verify_audio=True,
+                        ))
                         continue
 
                 if session:
@@ -560,6 +564,93 @@ class Pipeline:
             self._tts_error_sessions.discard(session_id)
             self._verify_abort.discard(session_id)
             await self.send_queue.put((session_id, None, -1))
+
+    async def _regenerate_flagged_answer(
+        self, session_id: str, transcript: str, flagged_answer: str,
+        character_id: str | None, emotion: str | None, *,
+        reason: str, use_verify_audio: bool,
+    ):
+        """A Tier-1 regex/anachronism gate rejected the answer BEFORE TTS — ask the
+        verifier LLM to regenerate a clean reply and stream that instead.
+
+        The flagged answer is NEVER played. If the verifier produces a usable
+        correction (and it survives a second regex pass) we replay it; otherwise we
+        fall back to the static verify/fallback audio, exactly as before.
+
+        Logging convention (matches :meth:`_run_verification`): the DB ``answer``
+        column keeps the original flagged answer (already set by the caller via
+        ``set_reply_text``); the regenerated reply is recorded as
+        ``verifier_corrected_answer``. Conversation memory only ever receives the
+        correction — never the flagged text — so later turns aren't poisoned.
+        """
+        async def _play_static_fallback():
+            if use_verify_audio:
+                await self._send_verifier_fallback_audio(session_id, character_id)
+            else:
+                await self._send_fallback_audio(session_id, character_id)
+
+        try:
+            agg = await self.verifier.run_answer_async_checks(
+                transcript=transcript,
+                answer=flagged_answer,
+                character_id=character_id,
+                fallback_emotion=emotion,
+            )
+            self._t(session_id)["verifier"] = (self._t(session_id).get("verifier") or 0) + (agg.total_latency_s or 0)
+
+            # Persist per-check verifier details (same shape as _run_verification).
+            for r in agg.results:
+                if r.name == "models.moderation_answer":
+                    self._t(session_id)["moderation_a_pass"] = r.passed
+                    cats = r.details.get("categories", [])
+                    self._t(session_id)["moderation_a_categories"] = ", ".join(cats) if cats else None
+                elif r.name == "models.llm_judge":
+                    self._t(session_id)["verifier_pass"] = r.passed
+                    self._t(session_id)["verifier_historical_accuracy"] = json.dumps(r.details.get("historical_accuracy"))
+                    self._t(session_id)["verifier_appropriateness"] = json.dumps(r.details.get("appropriateness"))
+                    self._t(session_id)["verifier_modern_references"] = json.dumps(r.details.get("modern_references"))
+                    self._t(session_id)["verifier_in_character"] = json.dumps(r.details.get("in_character"))
+
+            corrected = (agg.corrected_answer or "").strip()
+
+            # Guard against the rewrite reintroducing a flagged term — re-gate it.
+            if corrected:
+                recheck = self.verifier.regex_check_answer(corrected, character_id)
+                if not recheck.passed:
+                    log.fail("VERIFY", f"{reason}: regenerated answer still flagged by regex — discarding correction")
+                    corrected = ""
+
+            if not corrected:
+                log.fail("VERIFY", f"{reason}: verifier produced no usable correction — playing static audio")
+                await _play_static_fallback()
+                return
+
+            corrected_emotion = agg.corrected_emotion or emotion
+            self._t(session_id)["verifier_corrected_answer"] = corrected
+            self._t(session_id)["verifier_corrected_emotion"] = corrected_emotion
+            log.step("VERIFY", f"{reason}: replaying with verifier-regenerated answer")
+            log.detail(f"corrected         : {corrected}")
+            log.detail(f"corrected_emotion : {corrected_emotion}")
+
+            # The flagged answer never reached the user, so conversation memory gets
+            # ONLY the correction (keeps multi-turn context coherent, no poisoning).
+            session = self.connection_manager.get_session(session_id)
+            if session:
+                session.append_turn(transcript, corrected)
+
+            await self.connection_manager.send_json(
+                session_id, build_reply_text_done_event(corrected, emotion=corrected_emotion)
+            )
+            # Verify audio plays first (suppress its done signal), then the corrected
+            # TTS streams into the same utterance. No tts_done_event is registered, so
+            # _tts_worker emits the done sentinel itself when the corrected TTS finishes
+            # (which is what triggers _save_past_question).
+            await self._send_verifier_fallback_audio(session_id, character_id, send_done=False)
+            await self.tts_queue.put((session_id, corrected))
+
+        except Exception as e:
+            log.warn("VERIFY", f"{reason}: regeneration failed: {e} — playing static audio")
+            await _play_static_fallback()
 
     async def _tts_worker(self):
         while True:

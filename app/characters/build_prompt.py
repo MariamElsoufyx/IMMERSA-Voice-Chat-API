@@ -33,6 +33,7 @@ def fill_character_fields(prompt: str, character_id: str) -> str:
     prompt = prompt.replace("{last_name}", characters_info.last_name.get(character_id, ""))
     prompt = prompt.replace("{department}", characters_info.department.get(character_id, ""))
     prompt = prompt.replace("{gender}", characters_info.gender.get(character_id, ""))
+    prompt = prompt.replace("{age}", characters_info.age.get(character_id, ""))
     prompt = prompt.replace("{operation_year}", characters_info.operation_year.get(character_id, ""))
     prompt = prompt.replace("{financial_status}", characters_info.financial_status.get(character_id, ""))
     prompt = prompt.replace("{personal_items}", ", ".join(characters_info.personal_items.get(character_id, [])))
