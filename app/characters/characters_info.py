@@ -103,9 +103,15 @@ hobbies = {
 
 # ----- Academic Profile -----#
 graduation_year = {
-    "s1":"1921",
+    "s1":"2003",
     "s2":"1963",
-    "p1" :"1891"
+    "p1" :"1987"
+    }
+
+location = {
+    "s1":"faculty of engineering, Cairo University",
+    "s2":"faculty of engineering, Cairo University",
+    "p1" :"faculty of engineering, Cairo University"
     }
 
 

@@ -32,6 +32,7 @@ def fill_character_fields(prompt: str, character_id: str) -> str:
     prompt = prompt.replace("{middle_name}", characters_info.middle_name.get(character_id, ""))
     prompt = prompt.replace("{last_name}", characters_info.last_name.get(character_id, ""))
     prompt = prompt.replace("{department}", characters_info.department.get(character_id, ""))
+    prompt = prompt.replace("{location}", characters_info.location.get(character_id, ""))
     prompt = prompt.replace("{gender}", characters_info.gender.get(character_id, ""))
     prompt = prompt.replace("{operation_year}", characters_info.operation_year.get(character_id, ""))
     prompt = prompt.replace("{financial_status}", characters_info.financial_status.get(character_id, ""))
@@ -96,11 +97,11 @@ def build_narrator_prompts(character_id, question, prompt_key, retrieved_chunks=
     it?") read as genuine continuations instead of being re-anchored by a full
     per-turn template.
     """
-    persona = prompts.persona_blocks.get(prompt_key) or prompts.persona_blocks["mohandeskhana-student"]
+    persona = prompts.persona_blocks.get(prompt_key) or prompts.persona_blocks["student"]
     persona = fill_character_fields(persona, character_id).strip()
 
     operation_year = characters_info.operation_year.get(character_id, "")
-    system_prompt = prompts.system_prompts["mohandeskhana-historical-narrator"]
+    system_prompt = prompts.system_prompts["historical-narrator"]
     system_prompt = system_prompt.replace("{persona}", persona)
     system_prompt = system_prompt.replace("{operation_year}", operation_year)
     system_prompt = system_prompt.replace("{retrieved_chunks}", format_history_chunks(retrieved_chunks))
@@ -112,7 +113,7 @@ def build_narrator_prompts(character_id, question, prompt_key, retrieved_chunks=
 def build_verifier_prompts(character_id, question, answer):
     user_prompt = generate_prompt(
         prompt_type="user",
-        prompt_key="mohandeskhana-user-verifier",
+        prompt_key="user-verifier",
         character_id=character_id,
         question=question,
         answer=answer,
@@ -120,7 +121,7 @@ def build_verifier_prompts(character_id, question, answer):
 
     system_prompt = generate_prompt(
         prompt_type="system",
-        prompt_key="mohandeskhana-verifier",
+        prompt_key="verifier",
     )
     operation_year = characters_info.operation_year.get(character_id, "")
     system_prompt = system_prompt.replace("{operation_year}", operation_year)

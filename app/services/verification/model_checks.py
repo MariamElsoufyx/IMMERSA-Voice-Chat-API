@@ -129,7 +129,24 @@ async def check_llm_judge(
             )
 
         parsed = json.loads(raw)
-        overall = bool(parsed.get("overall_pass", True))
+
+        # Recompute `overall` deterministically from the dimensions instead of
+        # trusting the judge's overall_pass field. `historical_accuracy` still
+        # gates — but the prompt narrows it to only fail on clearly invented /
+        # fabricated facts, NOT on the judge's unreliable "anachronistic for the
+        # operation year" guesses (which produced false failures on correct
+        # period facts).
+        def _dim_pass(d) -> bool:
+            return bool(d.get("pass", True)) if isinstance(d, dict) else True
+
+        modern_refs = parsed.get("modern_references")
+        modern_found = bool(modern_refs.get("found", False)) if isinstance(modern_refs, dict) else False
+        overall = (
+            _dim_pass(parsed.get("historical_accuracy"))
+            and _dim_pass(parsed.get("appropriateness"))
+            and not modern_found
+            and _dim_pass(parsed.get("in_character"))
+        )
 
         raw_corrected_emotion = (parsed.get("corrected_emotion") or "").strip().lower()
         corrected_emotion = (

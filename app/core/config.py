@@ -91,6 +91,6 @@ ANACHRONISM_DEFAULT_LATEST_YEAR = 2000
 def get_prompt_key_by_character_id(character_id):
     cid = character_id.lower()
     if cid.startswith("s"):
-        return "mohandeskhana-student"
+        return "student"
     elif cid.startswith("p"):
-        return "mohandeskhana-professor"
+        return "professor"

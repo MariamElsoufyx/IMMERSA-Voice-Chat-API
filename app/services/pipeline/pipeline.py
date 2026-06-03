@@ -400,7 +400,7 @@ class Pipeline:
                                   f"embed={embed_ms and f'{embed_ms:.0f}ms' or 'n/a'}, "
                                   f"db={db_ms and f'{db_ms:.0f}ms' or 'n/a'})")
 
-                prompt_key = config.get_prompt_key_by_character_id(character_id) if character_id else "mohandeskhana-student"
+                prompt_key = config.get_prompt_key_by_character_id(character_id) if character_id else "student"
                 user_prompt, system_prompt = build_narrator_prompts(
                     character_id=character_id,
                     question=transcript,

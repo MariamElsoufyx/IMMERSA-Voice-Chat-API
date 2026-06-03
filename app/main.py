@@ -93,14 +93,14 @@ async def lifespan(app: FastAPI):
     print("\n_____________________________________________\n🛑 [SHUTDOWN] Shutting down...")
 
 
-app = FastAPI(title="Mohandeskhana Voice Chat WebSocket API", lifespan=lifespan)
+app = FastAPI(title="IMMERSA Voice Chat WebSocket API", lifespan=lifespan)
 app.include_router(websocket_router)
 app.include_router(faq_router)
 
 
 @app.get("/")
 def root():
-    return {"message": "Mohandeskhana WebSocket Voice Chat API is running 🗣️"}
+    return {"message": "IMMERSA WebSocket Voice Chat API is running 🗣️"}
 
 
 @app.get("/health")
