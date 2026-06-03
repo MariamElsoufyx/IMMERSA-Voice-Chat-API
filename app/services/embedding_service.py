@@ -13,17 +13,9 @@ _model: SentenceTransformer | None = None
 def get_model() -> SentenceTransformer:
     global _model
     if _model is None:
-        print(f"[EMBEDDING] Loading local model '{EMBEDDING_MODEL}'...")
-        # Offline-first: load from the local cache without any network round-trip.
-        # This avoids crashing when huggingface.co is unreachable (DNS/getaddrinfo
-        # failure) for an already-cached model. Fall back to an online download
-        # only if the model isn't cached yet (e.g. a fresh environment).
-        try:
-            _model = SentenceTransformer(EMBEDDING_MODEL, local_files_only=True)
-        except Exception:
-            print(f"[EMBEDDING] Not cached locally, downloading from HuggingFace...")
-            _model = SentenceTransformer(EMBEDDING_MODEL)
-        print(f"[EMBEDDING] Model loaded")
+        print(f"⏳ [EMBEDDING] Loading local model '{EMBEDDING_MODEL}'...")
+        _model = SentenceTransformer(EMBEDDING_MODEL)
+        print(f"✅ [EMBEDDING] Model loaded")
     return _model
 
 

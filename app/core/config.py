@@ -64,11 +64,11 @@ RESPONSES_AUDIO_BUCKET = os.getenv("SUPABASE_RESPONSES_BUCKET", "response-audios
 QUESTIONS_AUDIO_BUCKET = os.getenv("SUPABASE_QUESTIONS_BUCKET", "question-audios")
 
 #db
-FAQ_SIMILARITY_THRESHOLD = 0.8
+FAQ_SIMILARITY_THRESHOLD = 0.7  # 0.0–1.0 — higher = more similar (and thus more likely to be a relevant FAQ match); set based on testing and desired balance between recall and precision
 FAQ_LOOKUP_TIMEOUT = 2.0   # seconds — if DB doesn't respond in time, skip FAQ and fall through to LLM
 
 #conversation memory (per-WS-session multi-turn context passed to the LLM)
-CONVERSATION_HISTORY_MAX_TURNS = 6  # keep last N (question, answer) pairs; older turns are dropped
+CONVERSATION_HISTORY_MAX_TURNS = 3  # keep last N (question, answer) pairs; older turns are dropped
 
 #RAG (history retrieval — used on FAQ miss to ground the LLM)
 HISTORY_TOP_K = 6                  # number of history chunks to inject into the prompt
@@ -84,7 +84,7 @@ ANACHRONISM_ENABLED = True             # regex check for future years / modern t
 # year is flagged. Each character is actually checked against their OWN
 # operation_year (see regex_checks.check_anachronism); this value is only the
 # fallback used when a character has no year on file.
-ANACHRONISM_DEFAULT_LATEST_YEAR = 1960
+ANACHRONISM_DEFAULT_LATEST_YEAR = 2000
 
 
 #functions 

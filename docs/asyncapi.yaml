@@ -209,7 +209,6 @@ components:
             type: reply_text_done
             text: "Well, hydraulic pressure is the force exerted by a confined fluid..."
             length: 147
-            emotion: neutral
 
     TtsAudioChunk:
       name: tts_audio_chunk
@@ -279,9 +278,9 @@ components:
           description: ID of the character to converse with.
           enum: [s1, s2, p1]
           x-enumDescriptions:
-            s1: "Morad Ali El-Attar — Student, Irrigation Engineering (1918)"
-            s2: "Hassan Kareem Shawky — Student, Mechanical Engineering (1960)"
-            p1: "Amin Saleh El-Shazly — Professor, Mechanical Engineering (1918)"
+            s1: "Kareem Ali El-Attar — Student, Irrigation Engineering"
+            s2: "Morad Hassan El-Shazly — Student, Mechanical Engineering"
+            p1: "Amin Saleh Shawky — Professor, Mechanical Engineering"
         sample_rate:
           type: integer
           default: 16000
@@ -290,11 +289,8 @@ components:
         audio_format:
           type: string
           default: wav
-          description: >
-            Encoding format of the audio data. `wav` = WAV bytes (first chunk
-            carries the header; later chunks may be headerless PCM).
-            `pcm16_base64_chunks` = raw PCM16-LE in every chunk.
-          enum: [wav, pcm16_base64_chunks]
+          description: Encoding format of the audio data.
+          enum: [wav, wav_base64_chunks, pcm16_base64_chunks]
           example: wav
 
     AudioChunkPayload:
@@ -314,8 +310,8 @@ components:
           format: byte
           description: >
             Base64-encoded audio data for this chunk.
-            Format depends on audio_format: WAV bytes for `wav`,
-            raw PCM16-LE bytes for `pcm16_base64_chunks`.
+            Format depends on audio_format: WAV bytes for `wav` /
+            `wav_base64_chunks`, raw PCM16-LE bytes for `pcm16_base64_chunks`.
 
     EndOfUtterancePayload:
       type: object
@@ -419,11 +415,6 @@ components:
         length:
           type: integer
           description: Character count of the reply text.
-        emotion:
-          type: string
-          nullable: true
-          enum: [happy, sad, angry, disgust, surprise, neutral]
-          description: Emotion the reply should be delivered with, or null.
 
     TtsAudioChunkPayload:
       type: object

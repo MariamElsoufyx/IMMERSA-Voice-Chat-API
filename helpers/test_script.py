@@ -19,7 +19,7 @@ WS_URL = "wss://immersa-api-voice-chat.run.place/ws/voice-chat"
 
 TEST_FILES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_files")
 
-CHARACTER_ID = "s1"
+CHARACTER_ID = "s2"
 SAMPLE_RATE = 16000
 CHANNELS = 1
 DTYPE = "int16"
