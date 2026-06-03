@@ -24,8 +24,8 @@ last_name = {
 
 voices = {
     "s1": os.getenv("AHMAD_VOICE_ID"),
-    "s2": os.getenv("ACHRAF_VOICE_ID"),
-    "p1" : os.getenv("ROGER_VOICE_ID")
+    "s2": os.getenv("KARIM_VOICE_ID"),
+    "p1" : os.getenv("HANAFI_VOICE_ID")
 
 }
 
@@ -44,9 +44,9 @@ gender = {
 # Year each character operates in. Drives the era references woven into the
 # prompts and the per-character anachronism cutoff (see regex_checks).
 operation_year = {
-    "s1":"1918",   # Morad
+    "s1":"2000",   # Morad
     "s2":"1960",   # Hassan Kareem
-    "p1":"1918"    # Amin
+    "p1":"2000"    # Amin
     }
 
 financial_status = {
