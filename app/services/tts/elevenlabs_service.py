@@ -17,9 +17,6 @@ class AudioGenerationElevenLabsService:
         self._warmup()
 
     def _warmup(self):
-        """Send a silent TTS request for each real character voice at startup.
-        This establishes the TCP/SSL connection AND warms ElevenLabs' per-voice
-        cache, eliminating the cold-start penalty on the first real request."""
         print(f"⏳ [TTS] Warming up ElevenLabs (model={self.model_id}, {len(self.voices_ids)} voices)...")
         for character_id, voice_id in (self.voices_ids or {}).items():
             try:
@@ -63,11 +60,7 @@ class AudioGenerationElevenLabsService:
             raise
 
     def stream_audio_pcm(self, text, character_id):
-        """Stream raw PCM16 chunks at 44100 Hz.
 
-        Yields each chunk immediately as ElevenLabs produces it — no buffering,
-        no MP3 decode/re-encode. This is the low-latency path used by the pipeline.
-        """
         try:
             audio_stream = self.client.text_to_speech.convert(
                 text=text,

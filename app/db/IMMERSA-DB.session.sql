@@ -1,2 +1,0 @@
-SELECT *
-from frequently_asked_questions

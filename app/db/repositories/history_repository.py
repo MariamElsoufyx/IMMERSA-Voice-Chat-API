@@ -48,7 +48,7 @@ async def create_chunk(db: AsyncSession, chunk_data: dict) -> HistoryChunk:
 
 
 async def delete_chunks_by_source(db: AsyncSession, source_doc: str) -> int:
-    """Remove every chunk from a source document — used to re-index a single file."""
+
     result = await db.execute(delete(HistoryChunk).where(HistoryChunk.source_doc == source_doc))
     await db.commit()
     return result.rowcount
@@ -67,15 +67,7 @@ async def search_history_chunks(
     threshold: float = HISTORY_SIMILARITY_THRESHOLD,
     limit: int = HISTORY_TOP_K,
 ) -> list[HistoryChunk]:
-    """Return the top-K most similar history chunks for grounding the LLM.
-
-    Scope: chunks for this character OR global chunks (character_id IS NULL).
-    Uses raw SQL with the cosine-distance operator (<=>) and the HNSW index,
-    matching the FAQ search pattern. similarity = 1 - distance.
-
-    Unlike FAQ lookup this returns a *list* (multiple passages) and uses a looser
-    threshold — we want grounding context even on a partial match, not an exact hit.
-    """
+ 
     embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
     cid = character_id.lower() if character_id else None
 
@@ -97,7 +89,7 @@ async def search_history_chunks(
     })
     rows = result.mappings().all()
 
-    # Always surface the closest match — even on a miss — so the threshold can be tuned.
+
     if rows:
         best = float(rows[0]["similarity"])
         scores = ", ".join(f"{float(r['similarity']):.4f}" for r in rows)
@@ -117,6 +109,6 @@ async def search_history_chunks(
         chunk = HistoryChunk()
         for col in ("id", "content", "character_id", "source_doc", "chunk_index", "language", "tag", "created_at", "updated_at"):
             setattr(chunk, col, row[col])
-        chunk.similarity = similarity  # transient attr — handy for debugging/tuning; ignored by the pipeline
+        chunk.similarity = similarity 
         chunks.append(chunk)
     return chunks

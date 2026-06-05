@@ -15,13 +15,6 @@ router = APIRouter()
 
 
 def _extract_wav_header(wav_bytes: bytes) -> bytes:
-    """Return the full WAV header (up to and including the 'data' size field).
-
-    Standard PCM WAV has a 44-byte header, but files with extra chunks (LIST,
-    JUNK, bext, etc.) push 'data' further in. Slicing to a fixed 44 bytes in
-    those cases truncates the header mid-chunk, producing bytes that soundfile
-    can't recognise as WAV (LibsndfileError 61).
-    """
     idx = wav_bytes.find(b"data")
     if idx == -1 or idx + 8 > len(wav_bytes):
         # Fallback: no 'data' marker found — return whatever we have.
@@ -30,7 +23,7 @@ def _extract_wav_header(wav_bytes: bytes) -> bytes:
 
 
 def _wrap_pcm16_as_wav(raw_bytes: bytes, sample_rate: int, channels: int = 1) -> bytes:
-    """Wrap raw PCM16 LE bytes in a valid WAV container so soundfile can read them."""
+    
     bits_per_sample = 16
     byte_rate = sample_rate * channels * bits_per_sample // 8
     block_align = channels * bits_per_sample // 8

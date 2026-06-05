@@ -4,7 +4,7 @@ from typing import Any
 
 @dataclass
 class CheckResult:
-    """Outcome of a single verification check."""
+
     name: str                                        # e.g. "regex.profanity_question"
     passed: bool
     reasons: list[str] = field(default_factory=list)  # human-readable hits
@@ -14,7 +14,6 @@ class CheckResult:
 
 @dataclass
 class AggregateResult:
-    """Outcome of one or more checks composed together. `passed` is the AND of all."""
     results: list[CheckResult] = field(default_factory=list)
     corrected_answer: str | None = None      # only the LLM judge fills this
     corrected_emotion: str | None = None

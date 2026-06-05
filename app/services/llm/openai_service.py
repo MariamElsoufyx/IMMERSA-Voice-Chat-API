@@ -4,8 +4,10 @@ import app.core.config as config
 class LLMOpenAIService:
     def __init__(self, client=None):
         self.client = client
-        self.model_name = config.openAI_model_name
-        self.max_completion_tokens = config.openAI_max_completion_tokens
+        self.model_name = config.openai_verifier_model_name
+        self.max_completion_tokens = config.openai_verifier_max_completion_tokens
+        print(f"✅ [LLM] OpenAI LLM ready (model={self.model_name})")
+
 
     def generate_reply(self, user_prompt, system_prompt, history=None):
         messages = [{"role": "system", "content": system_prompt}]

@@ -12,7 +12,7 @@ class STTWhisperService:
         self._warmup()
 
     def _warmup(self):
-        """Run a dummy transcription to trigger CTranslate2 model loading."""
+      #Run a dummy transcription to trigger CTranslate2 model loading
         silent = np.zeros(16000, dtype=np.float32)  # 1 second of silence
         segments, _ = self.model.transcribe(
             silent,

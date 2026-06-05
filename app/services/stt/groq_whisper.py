@@ -7,11 +7,6 @@ import app.core.config as config
 
 
 class STTGroqWhisperService:
-    """
-    STT service that uses Groq's hosted Whisper API instead of a local model.
-    Accepts the same numpy audio array as STTWhisperService — drop-in replacement.
-    No local model loading, no warmup delay.
-    """
 
     def __init__(self, client=None):
         self.client = client
@@ -20,9 +15,6 @@ class STTGroqWhisperService:
         self._warmup()
 
     def _warmup(self):
-        """Send a silent audio request to Groq at startup to establish the
-        HTTP connection and warm the API endpoint, eliminating the ~1-2s
-        cold-start penalty on the first real transcription."""
         print(f"⏳ [STT] Warming up Groq Whisper (model={self.model})...")
         silent = np.zeros(config.audio_preprocessing_sample_rate, dtype=np.float32)  # 1s silence
         try:

@@ -51,7 +51,7 @@ operation_year = {
 
 financial_status = {
     "s1":"Wealthy",
-    "s2":"Struggling",
+    "s2":"Wealthy",
     "p1" :"Wealthy"
     }
 
@@ -59,27 +59,23 @@ financial_status = {
 
 
 personal_items = {
-    "s1": ["Gold pocket watch",
-           "Fountain pen",
-           "Tarboosh", 
-           "Handkerchief"],
+    "s1": ["Monogrammed Gold pocket watch",
+           "Fountain pen",],
     
-    "s2": ["Nickel pocket watch",
-           "Handkerchief",
-           "Tarboosh", 
-           "Mechanical pencil", 
-           "Borrowed Books from Library" ],
+    "s2": ["silver pocket watch",
+           "Mechanical pencil",
+            "French Academic books"
+           ],
 
     
     "p1": ["Monogrammed Gold pocket watch",
            "French Academic books", 
-           "Tarboosh",
            "Leather briefcase"]
     }
 
 influences = {
     "s1": ["raised in Britain","Father is A wealthy landowner in the Nile Delta and a Diplomatic","his love for his mother"],
-    "s2": ["struggling poor family", "studies very hard", "got into college because the owner of the land his father works for supports him out of his love for him and generosity"],
+    "s2": ["French culture", "studies very hard", "got into college to make his father proud"],
     "p1": ["French culture", "Engineering Background","got his doctorate from France",]
 
     
@@ -95,7 +91,7 @@ significant_info = {
 
 hobbies = {
     "s1": ["Horseback riding", "Collecting stamps"],
-    "s2": ["Playing soccer"],
+    "s2": ["Playing chess"],
     "p1": ["Playing chess","Reading historical texts on architecture"]
 }
 
@@ -117,7 +113,7 @@ location = {
 
 
 academic_rank = {
-    "s1":"Struggling",
+    "s1":"Middle Student",
     "s2":"A Top Student",
     "p1" : "Professor"
     }

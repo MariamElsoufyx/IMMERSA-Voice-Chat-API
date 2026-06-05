@@ -4,17 +4,12 @@ from app.characters import prompts
 
 
 def load_prompt(prompt_type=None, prompt_key=None):
-    """Retrieve a prompt from the prompts dictionary based on a given key."""
     if prompt_type == "system":
         return prompts.system_prompts.get(prompt_key)
     return prompts.user_prompts.get(prompt_key)
 
 
 def format_history_chunks(chunks=None) -> str:
-    """Render retrieved history chunks into the <history> block injected into the
-    system prompt. Accepts a list of HistoryChunk objects (or plain strings).
-    Returns a clear placeholder when nothing was retrieved so the model doesn't
-    see an empty block and hallucinate."""
     if not chunks:
         return "(No specific records were retrieved for this question.)"
     parts = []
@@ -27,7 +22,6 @@ def format_history_chunks(chunks=None) -> str:
 
 
 def fill_character_fields(prompt: str, character_id: str) -> str:
-    """Substitute all {persona-field} placeholders in a template for one character."""
     prompt = prompt.replace("{first_name}", characters_info.first_name.get(character_id, ""))
     prompt = prompt.replace("{middle_name}", characters_info.middle_name.get(character_id, ""))
     prompt = prompt.replace("{last_name}", characters_info.last_name.get(character_id, ""))
@@ -51,7 +45,6 @@ def fill_character_fields(prompt: str, character_id: str) -> str:
 
 
 def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, question=None, answer=None, retrieved_chunks=None):
-    """Replace placeholders in the prompt with actual values."""
 
     if prompt_key is None:
         print("Prompt key is None")
@@ -89,14 +82,6 @@ def generate_prompt(prompt_type=None, prompt_key=None, character_id=None, questi
 
 
 def build_narrator_prompts(character_id, question, prompt_key, retrieved_chunks=None):
-    """Build (user_prompt, system_prompt) for the narrator.
-
-    Persona, rules, and the output format all live in the SYSTEM prompt (sent once).
-    The user message is just the raw question — identical in shape to the stored
-    conversation-history turns — so multi-turn follow-ups ("tell me more", "when was
-    it?") read as genuine continuations instead of being re-anchored by a full
-    per-turn template.
-    """
     persona = prompts.persona_blocks.get(prompt_key) or prompts.persona_blocks["student"]
     persona = fill_character_fields(persona, character_id).strip()
 
@@ -127,3 +112,6 @@ def build_verifier_prompts(character_id, question, answer):
     system_prompt = system_prompt.replace("{operation_year}", operation_year)
 
     return user_prompt, system_prompt
+
+
+

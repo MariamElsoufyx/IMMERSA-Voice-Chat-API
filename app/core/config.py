@@ -29,21 +29,19 @@ SST_beam_size = 2
 #LLM 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-openAI_model_name="gpt-5-nano"
-openai_max_tokens = 600 
 openai_verifier_model_name = "gpt-4.1-nano"
-openai_verifier_max_tokens = 600                    # enough for all 5 JSON fields with notes + corrected_answer when verification fails
-VERIFIER_TIMEOUT = 10.0   # seconds — if OpenAI doesn't respond in time, pass through to TTS
+openai_verifier_max_completion_tokens = 600                  
+VERIFIER_TIMEOUT = 4.0   # seconds — if OpenAI doesn't respond in time, pass through to TTS
 groq_model_name = "llama-3.1-8b-instant"
 groq_max_completion_tokens = 1024
 
 
 #TTS 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-ELEVENLABS_MODEL_ID = "eleven_v3"  # lowest-latency model — sentence pipelining keeps quality high
-VOICE_STABILITY = 0.2                     # low = more emotional range
-VOICE_SIMILARITY_BOOST = 0.85             # high = closer to target voice, but less expressive
-VOICE_STYLE = 0.75                         # push expressiveness
+ELEVENLABS_MODEL_ID = "eleven_v3"  
+VOICE_STABILITY = 0.2                   
+VOICE_SIMILARITY_BOOST = 0.85            
+VOICE_STYLE = 0.75                    
 USER_SPEAKER_BOOST = True
 VOICE_SETTINGS = VoiceSettings(
     
@@ -64,17 +62,16 @@ RESPONSES_AUDIO_BUCKET = os.getenv("SUPABASE_RESPONSES_BUCKET", "response-audios
 QUESTIONS_AUDIO_BUCKET = os.getenv("SUPABASE_QUESTIONS_BUCKET", "question-audios")
 
 #db
-FAQ_SIMILARITY_THRESHOLD = 0.78  # 0.0–1.0 — higher = more similar (and thus more likely to be a relevant FAQ match); set based on testing and desired balance between recall and precision
-FAQ_LOOKUP_TIMEOUT = 2.0   # seconds — if DB doesn't respond in time, skip FAQ and fall through to LLM
+FAQ_SIMILARITY_THRESHOLD = 0.78  
+FAQ_LOOKUP_TIMEOUT = 2.0   # seconds 
 
-#conversation memory (per-WS-session multi-turn context passed to the LLM)
-CONVERSATION_HISTORY_MAX_TURNS = 1 # keep last N (question, answer) pairs; older turns are dropped
+#conversation memory 
+CONVERSATION_HISTORY_MAX_TURNS = 2 
 
-#RAG (history retrieval — used on FAQ miss to ground the LLM)
-HISTORY_TOP_K = 6                  # number of history chunks to inject into the prompt
-HISTORY_SIMILARITY_THRESHOLD = 0.4 # looser than FAQ — we want context even on a partial match
-HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds — skip retrieval and answer without grounding if slow (in-memory search is ~1ms, so this is just a safety net)
-
+#RAG 
+HISTORY_TOP_K = 6                  
+HISTORY_SIMILARITY_THRESHOLD = 0.4 
+HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds 
 
 #verification
 MODERATION_ENABLED = True              # OpenAI Moderation API on questions and answers
