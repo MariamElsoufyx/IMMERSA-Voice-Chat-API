@@ -41,12 +41,10 @@ gender = {
     "p1" :"male"
     }
 
-# Year each character operates in. Drives the era references woven into the
-# prompts and the per-character anachronism cutoff (see regex_checks).
 operation_year = {
-    "s1":"2000",   # Morad
-    "s2":"1960",   # Hassan Kareem
-    "p1":"2000"    # Amin
+    "s1":"2000",   
+    "s2":"1960",   
+    "p1":"2000"    
     }
 
 financial_status = {

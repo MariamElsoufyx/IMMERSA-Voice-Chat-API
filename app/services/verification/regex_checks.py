@@ -1,8 +1,4 @@
-"""Tier 1 — synchronous regex checks. Sub-millisecond, fully local.
 
-Every function returns a :class:`CheckResult`. Callers are expected to gate
-TTS on the result before any expensive work (LLM, TTS, AI moderation).
-"""
 import re
 import time
 
@@ -12,12 +8,9 @@ from app.services.verification.base import CheckResult
 from app.utils.log import log
 
 
-# ---------------------------------------------------------------------------
-# Profanity / inappropriate language (English + Arabic transliterated)
-# ---------------------------------------------------------------------------
 
 _PROFANITY_WORDS = [
-    # English profanity
+    # English shteema
     "fuck", "fucking", "fucked", "fucker",
     "shit", "shitting", "shitty",
     "ass", "asshole", "asses",
@@ -35,7 +28,7 @@ _PROFANITY_WORDS = [
     "cunt", "cunts",
     "piss", "pissed",
     "hell",
-    # Arabic profanity (transliterated)
+    # Arabic shteema
     "kos", "kuss", "kes", "cos", "kous",
     "metnak", "metnaka", "metnakeen", "neek",
     "teez", "tizz", "tiz",
@@ -53,11 +46,7 @@ _PROFANITY_PATTERN = re.compile(
 )
 
 
-# ---------------------------------------------------------------------------
-# Anachronism — modern terms, brand names, future years, URLs, emails
-# ---------------------------------------------------------------------------
 
-# Cutoff: config.ANACHRONISM_DEFAULT_LATEST_YEAR
 
 _MODERN_TERMS = [
     # Computing / internet
@@ -83,17 +72,19 @@ _MODERN_TERMS = [
     "google", "microsoft", "apple inc", "amazon", "netflix", "spotify",
     "uber", "airbnb", "tesla", "spacex", "discord", "twitch", "reddit",
     "linkedin", "github",
-    # Modern tech / hardware
+    #  tech 
     "gps", "bluetooth", "usb", "ethernet", "wireless", "satellite",
     "drone", "drones", "robot", "robots", "robotics", "vr",
     "virtual reality", "ar", "augmented reality", "selfie", "selfies",
     "hashtag", "emoji", "emojis", "podcast", "podcasts",
     "electric car", "hybrid car", "hybrid vehicle", "ev", "evs",
-    # Misc 21st-century concepts
+    # hagat random w masayeb
     "covid", "covid-19", "coronavirus", "pandemic 2020", "world war ii",
     "world war 2", "world war two", "wwii", "ww2", "cold war", "nuclear bomb",
     "atomic bomb", "moon landing",
 ]
+
+
 
 _MODERN_TERMS_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(w) for w in _MODERN_TERMS) + r")\b",
@@ -112,13 +103,11 @@ _EMAIL_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b
 
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+
 
 def check_profanity(text: str, *, name: str) -> CheckResult:
-    """Run the profanity wordlist over `text`. `name` differentiates question vs answer."""
-    label = name.split(".")[-1]  # "profanity_question" / "profanity_answer"
+    
+    label = name.split(".")[-1] 
     t0 = time.perf_counter()
     flagged = sorted({m.group().lower() for m in _PROFANITY_PATTERN.finditer(text or "")})
     latency = time.perf_counter() - t0
@@ -136,12 +125,11 @@ def check_profanity(text: str, *, name: str) -> CheckResult:
 
 
 def check_anachronism(text: str, character_id: str | None) -> CheckResult:
-    """Future years, modern terms, URLs, and emails. All in one pass."""
+    #check fe mosta2abl walla La 
     t0 = time.perf_counter()
     reasons: list[str] = []
 
-    # Per-character cutoff: each character operates in their own year; fall back
-    # to the global default when the character has no year on file.
+  
     cutoff = config.ANACHRONISM_DEFAULT_LATEST_YEAR
     if character_id:
         year = characters_info.operation_year.get(character_id)

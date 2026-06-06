@@ -53,7 +53,7 @@ async def list_faqs(character_id: Optional[str] = None, db: AsyncSession = Depen
     ]
 
 
-@router.patch("/{faq_id}/emotion")
+@router.patch("/{faq_id}/emotion") #bta3deel el emotion bas
 async def set_faq_emotion(faq_id: uuid.UUID, body: FAQEmotionUpdate, db: AsyncSession = Depends(get_db)):
     if body.emotion and body.emotion.lower() not in VALID_EMOTIONS:
         raise HTTPException(status_code=422, detail=f"emotion must be one of: {', '.join(sorted(VALID_EMOTIONS))}")
@@ -63,7 +63,7 @@ async def set_faq_emotion(faq_id: uuid.UUID, body: FAQEmotionUpdate, db: AsyncSe
     return {"id": str(faq.id), "emotion": faq.emotion, "question": faq.question}
 
 
-@router.patch("/{faq_id}")
+@router.patch("/{faq_id}")  
 async def update_faq_endpoint(faq_id: uuid.UUID, body: FAQUpdate, db: AsyncSession = Depends(get_db)):
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if "emotion" in updates and updates["emotion"].lower() not in VALID_EMOTIONS:

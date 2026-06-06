@@ -12,15 +12,15 @@ class STTWhisperService:
         self._warmup()
 
     def _warmup(self):
-      #Run a dummy transcription to trigger CTranslate2 model loading
-        silent = np.zeros(16000, dtype=np.float32)  # 1 second of silence
+      
+        silent = np.zeros(16000, dtype=np.float32)  # lahzet samt 
         segments, _ = self.model.transcribe(
             silent,
             language=self.SST_language,
             vad_filter=self.SST_vad_filter,
             beam_size=self.SST_beam_size,
         )
-        list(segments)  # consume the generator to force full execution
+        list(segments)  
         print("✅ [STT] Whisper warmed up")
 
     def transcribe(self, audio, language="en", vad_filter=True, beam_size=2):

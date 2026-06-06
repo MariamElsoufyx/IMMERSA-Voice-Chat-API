@@ -19,7 +19,7 @@ class LLMOpenAIService:
                 model=self.model_name,
                 messages=messages,
                 max_completion_tokens=self.max_completion_tokens,
-                response_format={"type": "json_object"},
+                response_format={"type": "json_object"}, #3lashan mykharafsh w ytla3 shakl tany
                 stream=True,
             )
             tokens = []

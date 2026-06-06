@@ -16,11 +16,11 @@ class STTGroqWhisperService:
 
     def _warmup(self):
         print(f"⏳ [STT] Warming up Groq Whisper (model={self.model})...")
-        silent = np.zeros(config.audio_preprocessing_sample_rate, dtype=np.float32)  # 1s silence
+        silent = np.zeros(config.audio_preprocessing_sample_rate, dtype=np.float32)  # lahzet samt 3lashan el warm up 
         try:
             self.transcribe(silent)
         except Exception:
-            pass  # ignore any API error during warmup (e.g. empty audio rejection)
+            pass  
         print(f"✅ [STT] Groq Whisper ready (model={self.model})")
 
     def _audio_array_to_wav_bytes(self, audio: np.ndarray) -> bytes:
@@ -42,5 +42,7 @@ class STTGroqWhisperService:
             language=self.language,
             response_format="text",
         )
-        # Groq returns a plain string when response_format="text"
+
+
+
         return transcription.strip() if isinstance(transcription, str) else transcription.text.strip()

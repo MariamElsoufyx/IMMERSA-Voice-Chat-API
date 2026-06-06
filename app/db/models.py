@@ -17,7 +17,7 @@ class FAQ(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    character_id: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # s1 / s2 / p1 (always lowercase)
+    character_id: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # s1 / s2 / p1 (lowercase)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     audio_url: Mapped[str | None] = mapped_column(Text, nullable=True)   # Supabase Storage URL

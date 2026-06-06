@@ -16,7 +16,7 @@ class AudioGenerationElevenLabsService:
         self.model_id = config.ELEVENLABS_MODEL_ID
         self._warmup()
 
-    def _warmup(self):
+    def _warmup(self): 
         print(f"⏳ [TTS] Warming up ElevenLabs (model={self.model_id}, {len(self.voices_ids)} voices)...")
         for character_id, voice_id in (self.voices_ids or {}).items():
             try:
@@ -27,7 +27,7 @@ class AudioGenerationElevenLabsService:
                     output_format="mp3_44100_128",
                 )
                 for _ in stream:
-                    break  # first chunk is enough — connection and voice are warm
+                    break 
             except Exception:
                 pass
         print(f"✅ [TTS] ElevenLabs ready (model={self.model_id})")
@@ -66,7 +66,7 @@ class AudioGenerationElevenLabsService:
                 text=text,
                 voice_id=self.voices_ids[str(character_id).lower()],
                 model_id=self.model_id,
-                output_format="pcm_44100",   # raw signed 16-bit PCM, no container
+                output_format="pcm_44100",   
                 voice_settings=config.VOICE_SETTINGS,
             )
             for chunk in audio_stream:

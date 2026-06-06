@@ -10,16 +10,18 @@ load_dotenv()
 
 #preprocessing
 audio_preprocessing_sample_rate = 16000
-audio_noise_reduction_enabled = False   # disable noisereduce to save 50–200ms per batch
+audio_noise_reduction_enabled = False   #3lashan lw mhtaga ashghal el noise reduction fe halet eny bstkhdm device gher el glasses 
 
 
 
 #SST 
-stt_provider = "groq"            # "local" → faster-whisper on device | "groq" → Groq hosted Whisper API
-whisper_model_size = "tiny.en"   # used only when stt_provider = "local"
-whisper_device = "cpu"           # used only when stt_provider = "local"
-whisper_compute_type = "int8"    # used only when stt_provider = "local"
-groq_whisper_model = "whisper-large-v3-turbo"  # used only when stt_provider = "groq"
+stt_provider = "groq"           # local aw groq
+#used lma el sst provider yb2a local
+whisper_model_size = "tiny.en"      
+whisper_device = "cpu"          
+whisper_compute_type = "int8"    
+#used lma el sst provider yb2a groq 
+groq_whisper_model = "whisper-large-v3-turbo"  
 SST_language = "en"
 SST_vad_filter = True
 SST_beam_size = 2
@@ -31,9 +33,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 openai_verifier_model_name = "gpt-4.1-nano"
 openai_verifier_max_completion_tokens = 600                  
-VERIFIER_TIMEOUT = 4.0   # seconds — if OpenAI doesn't respond in time, pass through to TTS
+VERIFIER_TIMEOUT = 4.0   
 groq_model_name = "llama-3.1-8b-instant"
-groq_max_completion_tokens = 1024
+groq_Max_completion_tokens = 1024
 
 
 #TTS 
@@ -74,13 +76,10 @@ HISTORY_SIMILARITY_THRESHOLD = 0.4
 HISTORY_LOOKUP_TIMEOUT = 2.0       # seconds 
 
 #verification
-MODERATION_ENABLED = True              # OpenAI Moderation API on questions and answers
-ANACHRONISM_ENABLED = True             # regex check for future years / modern terms / URLs / emails
+MODERATION_ENABLED = True              
+ANACHRONISM_ENABLED = True             
 
-# Anachronism cutoff — any 4-digit year in the LLM answer that exceeds this
-# year is flagged. Each character is actually checked against their OWN
-# operation_year (see regex_checks.check_anachronism); this value is only the
-# fallback used when a character has no year on file.
+
 ANACHRONISM_DEFAULT_LATEST_YEAR = 2000
 
 

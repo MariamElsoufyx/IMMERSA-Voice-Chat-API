@@ -6,7 +6,7 @@ import app.core.config as config
 
 
 
-class AIClients:
+class AIClients: #3lashan y-intialize kol el clients mara wahda w y3mel el warm up 
     def __init__(self):
         print("⏳ [CLIENTS] Connecting to Groq...")
         self.groq_client = Groq(api_key=config.GROQ_API_KEY)

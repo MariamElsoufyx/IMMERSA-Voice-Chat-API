@@ -14,12 +14,12 @@ from app.services.streaming.event_protocol import (
 router = APIRouter()
 
 
-def _extract_wav_header(wav_bytes: bytes) -> bytes:
+def _extract_wav_header(wav_bytes: bytes) -> bytes: 
     idx = wav_bytes.find(b"data")
     if idx == -1 or idx + 8 > len(wav_bytes):
-        # Fallback: no 'data' marker found — return whatever we have.
+       
         return wav_bytes
-    return wav_bytes[: idx + 8]  # 'data' (4 bytes) + data-chunk size (4 bytes)
+    return wav_bytes[: idx + 8]  
 
 
 def _wrap_pcm16_as_wav(raw_bytes: bytes, sample_rate: int, channels: int = 1) -> bytes:
@@ -142,7 +142,7 @@ async def websocket_voice_chat(websocket: WebSocket):
                         audio_bytes = raw
                     await pipeline.enqueue(session_id, audio_bytes, is_final=True)
                 else:
-                    # Chunks count was exactly divisible by 5 — all already processed
+                    # lw el chunk count is divisible by 5 --> keda ana khalast 
                     await pipeline.enqueue_finalize(session_id)
 
             elif msg_type == "close_session":

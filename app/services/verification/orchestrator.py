@@ -1,19 +1,4 @@
-"""Composes the verification layers into a pipeline-friendly API.
 
-Two synchronous fast gates run BEFORE TTS so a bad answer never reaches the user:
-
-* :meth:`Verifier.regex_check_question` — profanity on the user's transcript
-* :meth:`Verifier.regex_check_answer`   — profanity + anachronism on the LLM reply
-
-One coroutine fans out the slow checks IN PARALLEL with TTS streaming:
-
-* :meth:`Verifier.start_question_moderation` — kicked off alongside FAQ lookup
-* :meth:`Verifier.run_answer_async_checks`   — OpenAI moderation + LLM judge,
-                                                 gathered concurrently
-
-The orchestrator only *runs* checks. Decisions about TTS abort / corrected
-replay / fallback audio remain in the pipeline.
-"""
 import asyncio
 import time
 

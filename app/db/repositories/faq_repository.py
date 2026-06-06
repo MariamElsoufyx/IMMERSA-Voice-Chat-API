@@ -68,8 +68,8 @@ async def search_similar_faq(
 
 
     embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
-
-    # Fetch all columns in one query — avoids a second get_faq_by_id round trip.
+    
+    #hageeb kul el columns in one query badal rayeh rage3 
     query = text("""
         SELECT id, character_id, question, answer, audio_url, tag, language,
                emotion, created_at, updated_at,

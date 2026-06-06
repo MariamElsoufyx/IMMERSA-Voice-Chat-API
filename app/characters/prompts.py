@@ -123,11 +123,6 @@ Output STRICT JSON only — no text outside it:
 }
 
 
-# Persona blocks injected into the narrator SYSTEM prompt (filled per character).
-# These carry ONLY the character bio + style guidance — the question is delivered as
-# the user message and the output format lives in the system prompt, so neither is
-# repeated here. This keeps multi-turn conversations coherent (each user turn is just
-# the raw question) instead of re-anchoring the model with a full template every turn.
 persona_blocks = {
 "student":
   """
