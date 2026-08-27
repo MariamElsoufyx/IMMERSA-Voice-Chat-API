@@ -185,7 +185,7 @@ internal_conflicts = {
         "Am I truly capable… or am I only here because of my family name?"
     ],
     
-    "s2" : ["If I fail, my family has nothing."],
+    "s2" : ["If I fail, my family won't be proud of me."],
     "p1": ["Should Egypt follow Europe… or define its own engineering path?"]
 }
 
